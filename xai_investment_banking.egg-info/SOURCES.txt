@@ -1,0 +1,9 @@
+README.md
+pyproject.toml
+src/__init__.py
+src/demo.py
+xai_investment_banking.egg-info/PKG-INFO
+xai_investment_banking.egg-info/SOURCES.txt
+xai_investment_banking.egg-info/dependency_links.txt
+xai_investment_banking.egg-info/requires.txt
+xai_investment_banking.egg-info/top_level.txt

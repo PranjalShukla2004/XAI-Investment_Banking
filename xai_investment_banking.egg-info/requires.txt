@@ -1,0 +1,9 @@
+numpy
+pandas
+requests
+python-dotenv
+tqdm
+pyyaml
+scipy
+matplotlib
+shap

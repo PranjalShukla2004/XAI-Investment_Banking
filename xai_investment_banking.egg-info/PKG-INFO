@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: xai-investment-banking
+Version: 0.1.0
+Summary: Dissertation project: risk scoring, valuation, and explainability for investment banking.
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: requests
+Requires-Dist: python-dotenv
+Requires-Dist: tqdm
+Requires-Dist: pyyaml
+Requires-Dist: scipy
+Requires-Dist: matplotlib
+Requires-Dist: shap
+
+# XAI-Investment_Banking
