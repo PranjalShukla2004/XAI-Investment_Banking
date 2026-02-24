@@ -1,101 +1,104 @@
-# src/data_fetch/get_3000_tickers_reference.py
+#!/usr/bin/env python3
+"""
+Fetch ALL available tickers via Massive RESTClient.list_tickers() and save to:
+  data/raw/tickers/final_tickers.txt
+
+Usage:
+  python src/data_fetch/fetch_final_tickers.py
+
+Env:
+  MASSIVE_API_KEY=...
+"""
+
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set
+from pathlib import Path
+from typing import Any, Optional
 
 from dotenv import load_dotenv
-from tqdm import tqdm
-
-from massive_client import MassiveClient, MassiveConfig
+from massive import RESTClient
 
 
-@dataclass
-class TickerConfig:
-    n_companies: int = 3000
-
-    # Your screenshot endpoint
-    path: str = "v3/reference/tickers"
-    params: Dict[str, Any] = None  # filled in __post_init__
-
-    # Safety
-    max_pages: int = 2000  # enough to reach 3000 even with filtering
-
-    # Output
-    out_dir: str = "data/raw/tickers"
-    out_file: str = "tickers_3000.txt"
-
-    # Filters (matches your call + typical cleanup)
-    market: str = "stocks"
-    active: bool = True
-    sort: str = "ticker"
-    order: str = "asc"
-    limit: int = 100
-
-    # Keep only common stocks by default (your sample shows "type": "CS")
-    type_allowlist: Optional[Set[str]] = None  # e.g. {"CS"}; None = keep all
-
-    def __post_init__(self):
-        if self.params is None:
-            self.params = {
-                "market": self.market,
-                "active": str(self.active).lower(),
-                "order": self.order,
-                "limit": self.limit,
-                "sort": self.sort,
-            }
+OUT_PATH = Path("data/raw/tickers/final_tickers.txt")
 
 
-def _get_ticker(rec: Dict[str, Any]) -> Optional[str]:
-    t = rec.get("ticker") or rec.get("symbol")
-    if not t:
+def extract_ticker(item: Any) -> Optional[str]:
+    """
+    RESTClient.list_tickers may yield:
+      - dicts: {"ticker": "..."} or {"symbol": "..."}
+      - objects with .ticker / .symbol
+      - strings
+    This function normalizes to uppercase ticker string.
+    """
+    if item is None:
         return None
-    return str(t).strip().upper()
+
+    # If it's already a string
+    if isinstance(item, str):
+        t = item.strip()
+        return t.upper() if t else None
+
+    # If it's a dict-like record
+    if isinstance(item, dict):
+        t = item.get("ticker") or item.get("symbol")
+        if not t:
+            return None
+        t = str(t).strip()
+        return t.upper() if t else None
+
+    # If it's an object with attributes
+    for attr in ("ticker", "symbol"):
+        if hasattr(item, attr):
+            t = getattr(item, attr)
+            if t is None:
+                continue
+            t = str(t).strip()
+            return t.upper() if t else None
+
+    # Fallback: last resort string conversion
+    t = str(item).strip()
+    return t.upper() if t else None
 
 
-def get_3000_tickers(cfg: TickerConfig) -> str:
+def main() -> None:
     load_dotenv()
-    client = MassiveClient(MassiveConfig())
 
-    tickers: List[str] = []
-    seen: Set[str] = set()
+    api_key = (os.getenv("MASSIVE_API_KEY") or "").strip()
+    if not api_key:
+        raise SystemExit("Missing MASSIVE_API_KEY. Put it in your .env or export it.")
 
-    it = client.iter_paginated(
-        cfg.path,
-        params=cfg.params,
-        results_key="results",
-        use_cache=False,       # IMPORTANT: ticker discovery should not write tons of cache files
-        max_pages=cfg.max_pages,
+    client = RESTClient(api_key)
+
+    # Params mirror your screenshot (strings are fine)
+    params = dict(
+        market="stocks",
+        active="true",
+        order="asc",
+        limit="1000",   # if API supports bigger pages, try "1000"
+        sort="ticker",
     )
 
-    for rec in tqdm(it, desc=f"Collecting {cfg.n_companies} tickers (reference endpoint)"):
-        # optional type filter
-        if cfg.type_allowlist is not None:
-            typ = rec.get("type")
-            if typ not in cfg.type_allowlist:
-                continue
+    tickers = []
+    seen = set()
 
-        t = _get_ticker(rec)
+    # RESTClient.list_tickers is expected to handle pagination internally
+    for rec in client.list_tickers(**params):
+        t = extract_ticker(rec)
         if not t or t in seen:
             continue
-
         seen.add(t)
         tickers.append(t)
 
-        if len(tickers) >= cfg.n_companies:
-            break
+    tickers.sort()
 
-    os.makedirs(cfg.out_dir, exist_ok=True)
-    out_path = os.path.join(cfg.out_dir, cfg.out_file)
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(tickers))
+    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OUT_PATH.write_text("\n".join(tickers) + "\n", encoding="utf-8")
 
-    print(f"Saved {len(tickers)} tickers to {out_path}")
-    return out_path
+    print(f"Saved {len(tickers)} tickers to: {OUT_PATH}")
+    if tickers:
+        print("Sample:", ", ".join(tickers[:20]))
 
 
 if __name__ == "__main__":
-    # Example: only common stocks ("CS")
-    cfg = TickerConfig(type_allowlist={"CS"})
-    get_3000_tickers(cfg)
+    main()

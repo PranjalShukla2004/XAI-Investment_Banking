@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Fetch last 5 years of ANNUAL financial statements from Massive API for all tickers in tickers_3000.
+Fetch last 5 years of ANNUAL financial statements from Massive API for all tickers in a ticker file.
 
 Per ticker, fetch in this order:
 1) balance sheets
@@ -14,7 +14,8 @@ data/raw/cash-flow-statements/{TICKER}.json
 
 Usage:
   export MASSIVE_API_KEY="YOUR_KEY"
-  python src/scripts/fetch_massive_annual_5y.py --tickers tickers_3000 --out data/raw --years 5
+  python -m src.data_fetch.fetch_data_raw
+  python -m src.data_fetch.fetch_data_raw --tickers data/raw/tickers/final_tickers.txt --out data/raw --years 5
 
 Notes:
 - Uses timeframe="annual"
@@ -34,6 +35,8 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from massive import RESTClient
 from dotenv import load_dotenv
+
+DEFAULT_TICKERS_PATH = "data/raw/tickers/final_tickers.txt"
 
 
 load_dotenv()
@@ -225,7 +228,12 @@ def fetch_endpoint_with_retry(
 # -----------------------------
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--tickers", type=str, required=True, help="Path to tickers_3000 (.txt/.csv/.json)")
+    ap.add_argument(
+        "--tickers",
+        type=str,
+        default=DEFAULT_TICKERS_PATH,
+        help=f"Path to tickers file (.txt/.csv/.json). Default: {DEFAULT_TICKERS_PATH}",
+    )
     ap.add_argument("--out", type=str, default="data/raw", help="Output root folder (default: data/raw)")
     ap.add_argument("--years", type=int, default=5, help="How many years to keep (default: 5)")
     ap.add_argument("--limit", type=int, default=200, help="API limit per request (default: 200)")
@@ -243,6 +251,7 @@ def main() -> None:
     tickers = load_tickers(tickers_path)
     if not tickers:
         raise SystemExit(f"No tickers found in {tickers_path}")
+    print(f"Loaded {len(tickers)} tickers from {tickers_path}")
 
     # output dirs
     bs_dir = out_root / "balance-sheets"

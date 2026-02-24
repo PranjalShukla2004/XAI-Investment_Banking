@@ -59,16 +59,29 @@ class Loss:
 
 class MSELoss(Loss):
     """
-    Mean Squared Error:
+    Mean Squared Error (optionally sample-weighted):
+
       pred:   (N, D) or (N,)
       target: same shape
+
+    If sample_weight is provided (shape (N,) or (N,1)), the loss is:
+
+      loss = sum_i w_i * 0.5 * ||pred_i - target_i||^2  / sum_i w_i    (for reduction="mean")
+
+    and dL/dpred_i = w_i * (pred_i - target_i) / sum_i w_i            (for reduction="mean")
     """
     def __init__(self, reduction: Reduction = "mean"):
         super().__init__(reduction=reduction)
         self._pred: Optional[Array] = None
         self._target: Optional[Array] = None
+        self._w: Optional[Array] = None  # (N,)
 
-    def forward(self, pred: Array, target: Array) -> Union[float, Array]:
+    def forward(
+        self,
+        pred: Array,
+        target: Array,
+        sample_weight: Optional[Array] = None,
+    ) -> Union[float, Array]:
         pred = np.asarray(pred, dtype=float)
         target = np.asarray(target, dtype=float)
 
@@ -78,30 +91,159 @@ class MSELoss(Loss):
         self._pred = pred
         self._target = target
 
+        w = None
+        if sample_weight is not None:
+            w = np.asarray(sample_weight, dtype=float).reshape(-1)
+            if w.shape[0] != pred.shape[0]:
+                raise ValueError(
+                    f"sample_weight must have shape (N,), got {sample_weight.shape} for N={pred.shape[0]}"
+                )
+            w = np.clip(w, a_min=0.0, a_max=None)  # allow zero, forbid negative
+        self._w = w
+
         loss_per = 0.5 * (pred - target) ** 2  # 0.5 for nicer gradient
-        # reduce over features, keep batch
+
+        # reduce over feature dims -> per-sample (N,)
         if loss_per.ndim >= 2:
             loss_per = np.sum(loss_per, axis=tuple(range(1, loss_per.ndim)))
+
+        if w is not None:
+            loss_per = loss_per * w
 
         if self.reduction == "none":
             return loss_per
         if self.reduction == "sum":
             return float(np.sum(loss_per))
-        return float(np.mean(loss_per))
+
+        # mean
+        if w is None:
+            return float(np.mean(loss_per))
+        denom = float(np.sum(w))
+        if denom <= 0.0:
+            return 0.0
+        return float(np.sum(loss_per) / denom)
 
     def backward(self) -> Array:
         if self._pred is None or self._target is None:
             raise RuntimeError("Call forward() before backward().")
+
         pred, target = self._pred, self._target
         grad = (pred - target)
 
+        w = self._w
+        if w is not None:
+            # expand (N,) -> (N,1,1,...) to match pred shape
+            expand_shape = (w.shape[0],) + (1,) * (grad.ndim - 1)
+            grad = grad * w.reshape(expand_shape)
+
         if self.reduction == "none":
-            # In "none", we returned per-sample loss; grad should be same shape as pred
             return grad
         if self.reduction == "sum":
             return grad
-        # mean over batch (and any feature dims were summed in forward)
-        return grad / max(pred.shape[0], 1)
+
+        # mean
+        if w is None:
+            return grad / max(pred.shape[0], 1)
+        denom = float(np.sum(w))
+        if denom <= 0.0:
+            return np.zeros_like(grad)
+        return grad / denom
+
+
+class HuberLoss(Loss):
+    """
+    Huber loss (optionally sample-weighted), robust to outliers.
+
+      pred:   (N, D) or (N,)
+      target: same shape
+
+    For error e = pred - target and threshold delta:
+      0.5 * e^2                    if |e| <= delta
+      delta * (|e| - 0.5 * delta)  otherwise
+    """
+    def __init__(self, delta: float = 1.0, reduction: Reduction = "mean"):
+        super().__init__(reduction=reduction)
+        if delta <= 0.0:
+            raise ValueError("HuberLoss delta must be > 0.")
+        self.delta = float(delta)
+        self._pred: Optional[Array] = None
+        self._target: Optional[Array] = None
+        self._w: Optional[Array] = None
+
+    def forward(
+        self,
+        pred: Array,
+        target: Array,
+        sample_weight: Optional[Array] = None,
+    ) -> Union[float, Array]:
+        pred = np.asarray(pred, dtype=float)
+        target = np.asarray(target, dtype=float)
+
+        if pred.shape != target.shape:
+            raise ValueError(f"HuberLoss shape mismatch: pred {pred.shape}, target {target.shape}")
+
+        self._pred = pred
+        self._target = target
+
+        w = None
+        if sample_weight is not None:
+            w = np.asarray(sample_weight, dtype=float).reshape(-1)
+            if w.shape[0] != pred.shape[0]:
+                raise ValueError(
+                    f"sample_weight must have shape (N,), got {sample_weight.shape} for N={pred.shape[0]}"
+                )
+            w = np.clip(w, a_min=0.0, a_max=None)
+        self._w = w
+
+        err = pred - target
+        abs_err = np.abs(err)
+        quad = np.minimum(abs_err, self.delta)
+        lin = abs_err - quad
+        loss_per = 0.5 * quad * quad + self.delta * lin
+
+        if loss_per.ndim >= 2:
+            loss_per = np.sum(loss_per, axis=tuple(range(1, loss_per.ndim)))
+
+        if w is not None:
+            loss_per = loss_per * w
+
+        if self.reduction == "none":
+            return loss_per
+        if self.reduction == "sum":
+            return float(np.sum(loss_per))
+
+        if w is None:
+            return float(np.mean(loss_per))
+        denom = float(np.sum(w))
+        if denom <= 0.0:
+            return 0.0
+        return float(np.sum(loss_per) / denom)
+
+    def backward(self) -> Array:
+        if self._pred is None or self._target is None:
+            raise RuntimeError("Call forward() before backward().")
+
+        err = self._pred - self._target
+        abs_err = np.abs(err)
+        grad = np.where(abs_err <= self.delta, err, self.delta * np.sign(err))
+
+        w = self._w
+        if w is not None:
+            expand_shape = (w.shape[0],) + (1,) * (grad.ndim - 1)
+            grad = grad * w.reshape(expand_shape)
+
+        if self.reduction == "none":
+            return grad
+        if self.reduction == "sum":
+            return grad
+
+        if w is None:
+            return grad / max(self._pred.shape[0], 1)
+        denom = float(np.sum(w))
+        if denom <= 0.0:
+            return np.zeros_like(grad)
+        return grad / denom
+
 
 
 class CrossEntropyLoss(Loss):

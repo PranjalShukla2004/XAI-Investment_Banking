@@ -6,9 +6,10 @@ from typing import Iterable, List, Optional, Sequence, Literal
 
 import numpy as np
 
-from layers import Dense, DenseConfig, Dropout, Layer
-from activation import ReLU, Tanh, Sigmoid
-from sequential import Sequential
+from .layers import Dense, DenseConfig, Dropout, Layer
+from .activation import ReLU, Tanh, Sigmoid
+from .sequential import Sequential
+
 
 ActName = Literal["relu", "tanh", "sigmoid"]
 
@@ -45,7 +46,7 @@ class MLP(Sequential):
       Dense -> Act -> (Dropout) -> ... -> Dense(output)
 
     Outputs:
-      - For regression: raw output (use MSELoss)
+      - For regression: raw output (use MSELoss / HuberLoss)
       - For binary classification: logits (use BCEWithLogitsLoss)
       - For multi-class classification: logits (use CrossEntropyLoss)
     """
@@ -61,8 +62,8 @@ class MLP(Sequential):
             layers.append(
                 Dense(
                     DenseConfig(
-                        in_features=prev,
-                        out_features=h,
+                        in_dim=prev,
+                        out_dim=h,
                         init=cfg.init,
                         weight_scale=cfg.weight_scale,
                         l2=cfg.l2,
@@ -78,8 +79,8 @@ class MLP(Sequential):
         layers.append(
             Dense(
                 DenseConfig(
-                    in_features=prev,
-                    out_features=int(cfg.output_dim),
+                    in_dim=prev,
+                    out_dim=int(cfg.output_dim),
                     init="normal" if cfg.init == "he" else cfg.init,  # safe default
                     weight_scale=cfg.weight_scale,
                     l2=cfg.l2,

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, Tuple
 import numpy as np
 
-from sequential import ParamRef
+from .sequential import ParamRef
 
 Array = np.ndarray
 

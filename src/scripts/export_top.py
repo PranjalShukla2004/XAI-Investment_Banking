@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-DATASET_PATH = "data/raw/massive_financials_wide.csv"
+DATASET_PATH = "data/processed/main_dataset.csv"
 OUT_PATH = "data/processed/top100_main_dataset.csv"
 
 if __name__ == "__main__":
