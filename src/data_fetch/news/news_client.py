@@ -9,9 +9,9 @@ Saves to:
 
 Usage examples:
   export MASSIVE_API_KEY="..."
-  python -m src.data_fetch.news_client --ticker UBS
-  python -m src.data_fetch.news_client --ticker UBS --max-news-items 7 --news-since 2024-01-01
-  python -m src.data_fetch.news_client --tickers-file data/raw/tickers/final_tickers.txt
+  python -m src.data_fetch.news.news_client --ticker UBS --news-year 2025
+  python -m src.data_fetch.news.news_client --tickers-file data/raw/tickers/final_tickers.txt --news-year 2025 --max-news-items 4
+  python -m src.data_fetch.news.news_client --ticker UBS --news-since 2025-01-01 --news-until 2025-12-31
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ import json
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Set
 import requests
@@ -39,7 +39,7 @@ DEFAULT_OUT_DIR = Path("data/raw/news")
 DEFAULT_DATASET_PATH = Path("data/processed/main_dataset.csv")
 DEFAULT_TICKER_COLUMN = "ticker"
 DEFAULT_SINCE_DATE = "2024-01-01"
-DEFAULT_MAX_NEWS_ITEMS = 7
+DEFAULT_MAX_NEWS_ITEMS = 4
 DEFAULT_BASE_URL = "https://api.massive.com/v2/reference"
 
 # These paths match the sample next_url you showed.
@@ -135,6 +135,33 @@ def _validate_iso_date(date_str: Optional[str], arg_name: str) -> Optional[str]:
     return date_str
 
 
+def _validate_year(year: Optional[int]) -> Optional[int]:
+    if year is None:
+        return None
+    if year < 1900 or year > 2100:
+        raise ValueError(f"Invalid --news-year={year}. Expected a year between 1900 and 2100.")
+    return year
+
+
+def _year_bounds(year: int) -> tuple[str, str]:
+    return f"{year:04d}-01-01", f"{year:04d}-12-31"
+
+
+def _parse_published_date(value: Any) -> Optional[date]:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    if len(text) >= 10 and text[4] == "-" and text[7] == "-":
+        try:
+            return date.fromisoformat(text[:10])
+        except ValueError:
+            pass
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00")).date()
+    except ValueError:
+        return None
+
+
 def _safe_append_api_key(url: str, api_key: str) -> str:
     # next_url often does NOT include apiKey; append if missing
     if "apiKey=" in url:
@@ -203,7 +230,15 @@ def _paginate(start_url: str, cfg: FetchConfig) -> Iterable[Dict[str, Any]]:
             time.sleep(cfg.sleep_s)
 
 
-def _build_news_url(cfg: FetchConfig, ticker: str, since: Optional[str], order: str, sort: str, limit: int) -> str:
+def _build_news_url(
+    cfg: FetchConfig,
+    ticker: str,
+    since: Optional[str],
+    until: Optional[str],
+    order: str,
+    sort: str,
+    limit: int,
+) -> str:
     # Massive supports query params similar to your examples
     # We include published_utc.gte if provided
     params = {
@@ -213,13 +248,14 @@ def _build_news_url(cfg: FetchConfig, ticker: str, since: Optional[str], order: 
         "order": order,
     }
     if since:
-        # Based on your sample cursor structure using published_utc.gte
         params["published_utc.gte"] = since
+    if until:
+        params["published_utc.lte"] = until
     qs = "&".join([f"{k}={requests.utils.quote(v)}" for k, v in params.items()])
     return f"{cfg.base_url}{NEWS_PATH}?{qs}&apiKey={cfg.api_key}"
 
 
-def fetch_one_ticker(cfg: FetchConfig, ticker: str, news_since: Optional[str]) -> None:
+def fetch_one_ticker(cfg: FetchConfig, ticker: str, news_since: Optional[str], news_until: Optional[str]) -> None:
     ticker = ticker.upper()
     out_ticker_dir = cfg.out_dir / ticker
     _ensure_dir(out_ticker_dir)
@@ -230,15 +266,36 @@ def fetch_one_ticker(cfg: FetchConfig, ticker: str, news_since: Optional[str]) -
     existing_news = _load_existing_keys_jsonl(news_path, _news_key)
 
     # ---- NEWS ----
-    news_url = _build_news_url(cfg, ticker, news_since, order="desc", sort="published_utc", limit=cfg.limit)
+    news_url = _build_news_url(
+        cfg,
+        ticker,
+        news_since,
+        news_until,
+        order="desc",
+        sort="published_utc",
+        limit=cfg.limit,
+    )
     new_news_written = 0
     news_total_seen = 0
+    news_out_of_range_skipped = 0
+    since_date = date.fromisoformat(news_since) if news_since else None
+    until_date = date.fromisoformat(news_until) if news_until else None
 
     for page in _paginate(news_url, cfg):
         results = page.get("results") or []
         to_write = []
         for item in results:
             news_total_seen += 1
+            published_date = _parse_published_date(item.get("published_utc"))
+            if published_date is None:
+                news_out_of_range_skipped += 1
+                continue
+            if since_date and published_date < since_date:
+                news_out_of_range_skipped += 1
+                continue
+            if until_date and published_date > until_date:
+                news_out_of_range_skipped += 1
+                continue
             k = _news_key(item)
             if k in existing_news:
                 continue
@@ -256,7 +313,9 @@ def fetch_one_ticker(cfg: FetchConfig, ticker: str, news_since: Optional[str]) -
         "fetched_at_utc": _now_iso(),
         "news": {
             "since": news_since,
+            "until": news_until,
             "seen_total_this_run": news_total_seen,
+            "out_of_range_skipped_this_run": news_out_of_range_skipped,
             "new_items_written_this_run": new_news_written,
             "max_items_this_run": cfg.max_news_items,
             "jsonl_path": str(news_path),
@@ -264,7 +323,10 @@ def fetch_one_ticker(cfg: FetchConfig, ticker: str, news_since: Optional[str]) -
     }
     meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
-    print(f"[{ticker}] news: +{new_news_written} (seen {news_total_seen})")
+    print(
+        f"[{ticker}] news: +{new_news_written} (seen {news_total_seen}, "
+        f"out_of_range_skipped {news_out_of_range_skipped})"
+    )
 
 
 def main() -> None:
@@ -300,13 +362,34 @@ def main() -> None:
         default=DEFAULT_SINCE_DATE,
         help=f"YYYY-MM-DD (filters published_utc.gte). Default: {DEFAULT_SINCE_DATE}",
     )
+    p.add_argument(
+        "--news-until",
+        type=str,
+        default=None,
+        help="YYYY-MM-DD (filters published_utc.lte). Optional.",
+    )
+    p.add_argument(
+        "--news-year",
+        type=int,
+        default=None,
+        help="If set, fetch only this calendar year (sets --news-since YYYY-01-01 and --news-until YYYY-12-31).",
+    )
 
     args = p.parse_args()
 
     if args.max_news_items < 1:
         raise SystemExit("--max-news-items must be >= 1")
     try:
+        args.news_year = _validate_year(args.news_year)
+        if args.news_year is not None:
+            if args.news_since != DEFAULT_SINCE_DATE or args.news_until is not None:
+                raise ValueError("Use either --news-year or (--news-since/--news-until), not both.")
+            args.news_since, args.news_until = _year_bounds(args.news_year)
         args.news_since = _validate_iso_date(args.news_since, "news-since")
+        args.news_until = _validate_iso_date(args.news_until, "news-until")
+        if args.news_since and args.news_until:
+            if date.fromisoformat(args.news_since) > date.fromisoformat(args.news_until):
+                raise ValueError("--news-since must be <= --news-until.")
     except ValueError as e:
         raise SystemExit(str(e)) from e
 
@@ -352,7 +435,7 @@ def main() -> None:
 
     for t in tickers:
         try:
-            fetch_one_ticker(cfg, t, args.news_since)
+            fetch_one_ticker(cfg, t, args.news_since, args.news_until)
         except requests.HTTPError as e:
             print(f"[{t}] HTTPError: {e}")
         except Exception as e:
