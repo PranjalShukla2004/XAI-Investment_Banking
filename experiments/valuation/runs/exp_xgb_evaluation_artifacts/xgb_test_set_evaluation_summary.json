@@ -1,0 +1,138 @@
+{
+  "config": {
+    "data_path": "data/processed/main_dataset.csv",
+    "out_dir": "experiments/valuation/runs/exp_xgb_valuation_artifacts",
+    "target_col": "total_assets",
+    "log_target": true,
+    "time_col": "fiscal_year",
+    "min_val_rows": 20,
+    "random_seed": 42,
+    "val_ratio_fallback": 0.2,
+    "use_sample_weights": false,
+    "weight_power": 0.25,
+    "w_min": 0.5,
+    "w_max": 2.0,
+    "enable_deduplicate_entity_period": true,
+    "dedup_ticker_col": "ticker",
+    "dedup_period_col": "period_end",
+    "use_quantile_clip": true,
+    "clip_q_hi": 0.995,
+    "min_target_raw": 0.0,
+    "num_boost_round": 10000,
+    "early_stopping_rounds": 50,
+    "tree_method": "hist",
+    "max_depth": 6,
+    "eta": 0.03,
+    "subsample": 0.9,
+    "colsample_bytree": 0.9,
+    "reg_lambda": 1.0,
+    "reg_alpha": 0.0,
+    "min_child_weight": 1.0,
+    "gamma": 0.0,
+    "nthread": -1,
+    "verbose_eval": 50
+  },
+  "inputs": {
+    "main_dataset": "data/processed/main_dataset.csv",
+    "test_out_of_time": "data/processed/test_dataset_out_of_time.csv",
+    "test_unseen_tickers": "data/processed/test_dataset_unseen_tickers.csv"
+  },
+  "dedup": {
+    "main": {
+      "enabled": true,
+      "applied": true,
+      "rows_before": 21996,
+      "rows_after": 21994,
+      "rows_dropped": 2,
+      "duplicate_keys_before": 2,
+      "duplicate_rows_before": 4
+    },
+    "out_of_time": {
+      "enabled": true,
+      "applied": true,
+      "rows_before": 1730,
+      "rows_after": 1730,
+      "rows_dropped": 0,
+      "duplicate_keys_before": 0,
+      "duplicate_rows_before": 0
+    },
+    "unseen_tickers": {
+      "enabled": true,
+      "applied": true,
+      "rows_before": 4366,
+      "rows_after": 4365,
+      "rows_dropped": 1,
+      "duplicate_keys_before": 1,
+      "duplicate_rows_before": 2
+    }
+  },
+  "out_of_time": {
+    "years": [
+      2025,
+      2026
+    ],
+    "train_rows": 20264,
+    "test_metrics": {
+      "rows_test": 1730,
+      "unique_tickers_test": 1728,
+      "feature_count": 26,
+      "inner_split_mode": "group_ticker",
+      "best_iteration": 2846,
+      "rmse_log_preclip": 0.05470585450530052,
+      "r2_log_preclip": 0.9995844071974911,
+      "rmse_log": 0.05742720142006874,
+      "r2_log": 0.9995420313946397,
+      "rmse_raw": 23827247104.0,
+      "r2_raw": 0.9725586831431899,
+      "mape_raw": 0.029615910723805428,
+      "baseline_rmse_log": 2.740642786026001,
+      "baseline_r2_log": -0.043050380366285834,
+      "baseline_rmse_raw": 147723763712.0,
+      "baseline_r2_raw": -0.054770493420190025,
+      "baseline_mape_raw": 14.638642311096191,
+      "train_rmse_log_preclip": 0.023716449737548828,
+      "train_rmse_log": 0.04416844621300697
+    },
+    "clip": {
+      "use_quantile_clip": true,
+      "q_hi": 0.995,
+      "min_target_raw": 0.0,
+      "clip_lo": 0.0,
+      "clip_hi": 27.575529098510742
+    },
+    "predictions_path": "experiments/valuation/runs/exp_xgb_evaluation_artifacts/xgb_test_out_of_time_predictions.csv"
+  },
+  "unseen_tickers": {
+    "heldout_tickers": 1060,
+    "train_rows": 17629,
+    "test_metrics": {
+      "rows_test": 4365,
+      "unique_tickers_test": 1060,
+      "feature_count": 26,
+      "inner_split_mode": "group_ticker",
+      "best_iteration": 3699,
+      "rmse_log_preclip": 0.608900249004364,
+      "r2_log_preclip": 0.9455121065457303,
+      "rmse_log": 0.6089046597480774,
+      "r2_log": 0.94551132155077,
+      "rmse_raw": 5217031168.0,
+      "r2_raw": 0.996152213478499,
+      "mape_raw": 34810550550528.0,
+      "baseline_rmse_log": 2.608738899230957,
+      "baseline_r2_log": -0.00015861008118300823,
+      "baseline_rmse_raw": 85841936384.0,
+      "baseline_r2_raw": -0.041748940128618406,
+      "baseline_mape_raw": 117933695041536.0,
+      "train_rmse_log_preclip": 0.022481627762317657,
+      "train_rmse_log": 0.04505138099193573
+    },
+    "clip": {
+      "use_quantile_clip": true,
+      "q_hi": 0.995,
+      "min_target_raw": 0.0,
+      "clip_lo": 0.0,
+      "clip_hi": 27.601247787475586
+    },
+    "predictions_path": "experiments/valuation/runs/exp_xgb_evaluation_artifacts/xgb_test_unseen_tickers_predictions.csv"
+  }
+}

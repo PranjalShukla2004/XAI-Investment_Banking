@@ -38,6 +38,7 @@ class MLPConfig:
     init: str = "he"              
     weight_scale: float = 0.01     
     l2: float = 0.0              
+    l1: float = 0.0
 
 
 class MLP(Sequential):
@@ -67,6 +68,7 @@ class MLP(Sequential):
                         init=cfg.init,
                         weight_scale=cfg.weight_scale,
                         l2=cfg.l2,
+                        l1=cfg.l1,
                     )
                 )
             )
@@ -84,6 +86,7 @@ class MLP(Sequential):
                     init="normal" if cfg.init == "he" else cfg.init,  # safe default
                     weight_scale=cfg.weight_scale,
                     l2=cfg.l2,
+                    l1=cfg.l1,
                 )
             )
         )
@@ -103,6 +106,7 @@ class MLP(Sequential):
         init: str = "he",
         weight_scale: float = 0.01,
         l2: float = 0.0,
+        l1: float = 0.0,
     ) -> "MLP":
         return cls(
             MLPConfig(
@@ -114,5 +118,6 @@ class MLP(Sequential):
                 init=init,
                 weight_scale=weight_scale,
                 l2=l2,
+                l1=l1,
             )
         )

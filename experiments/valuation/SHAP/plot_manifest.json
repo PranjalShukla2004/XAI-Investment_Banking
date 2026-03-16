@@ -1,0 +1,70 @@
+{
+  "config": {
+    "shap_dir": "experiments/valuation/SHAP",
+    "max_features": 15,
+    "max_dependence_plots": 6,
+    "max_local_plots": 5,
+    "dpi": 200
+  },
+  "materialization": {
+    "attempted": false,
+    "status": "already_available"
+  },
+  "root_plots": {
+    "metric_comparison": "experiments/valuation/SHAP/plots/model_metric_comparison.png",
+    "relative_error_cdf": "experiments/valuation/SHAP/plots/model_relative_error_cdf.png",
+    "feature_importance_comparison": "experiments/valuation/SHAP/plots/model_feature_importance_comparison.png"
+  },
+  "models": {
+    "residual_mlp": {
+      "model_dir": "experiments/valuation/SHAP/residual_mlp",
+      "plots_dir": "experiments/valuation/SHAP/residual_mlp/plots",
+      "files": {
+        "actual_vs_pred": "experiments/valuation/SHAP/residual_mlp/plots/validation_actual_vs_pred.png",
+        "relative_error_hist": "experiments/valuation/SHAP/residual_mlp/plots/validation_relative_error_hist.png",
+        "error_vs_target": "experiments/valuation/SHAP/residual_mlp/plots/validation_error_vs_target.png",
+        "feature_importance": "experiments/valuation/SHAP/residual_mlp/plots/validation_feature_importance.png",
+        "dependence_plots": [
+          "experiments/valuation/SHAP/residual_mlp/plots/dependence/01_identity_base_assets.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/dependence/02_cash_and_equivalents.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/dependence/03_capex.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/dependence/04_news_count.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/dependence/05_roa.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/dependence/06_net_debt.png"
+        ],
+        "local_explanations": [
+          "experiments/valuation/SHAP/residual_mlp/plots/local_explanations/01_ciit_2025.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/local_explanations/02_cmtl_2025.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/local_explanations/03_rmr_2025.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/local_explanations/04_apam_2025.png",
+          "experiments/valuation/SHAP/residual_mlp/plots/local_explanations/05_peng_2025.png"
+        ]
+      }
+    },
+    "xgb": {
+      "model_dir": "experiments/valuation/SHAP/xgb",
+      "plots_dir": "experiments/valuation/SHAP/xgb/plots",
+      "files": {
+        "actual_vs_pred": "experiments/valuation/SHAP/xgb/plots/validation_actual_vs_pred.png",
+        "relative_error_hist": "experiments/valuation/SHAP/xgb/plots/validation_relative_error_hist.png",
+        "error_vs_target": "experiments/valuation/SHAP/xgb/plots/validation_error_vs_target.png",
+        "feature_importance": "experiments/valuation/SHAP/xgb/plots/validation_feature_importance.png",
+        "dependence_plots": [
+          "experiments/valuation/SHAP/xgb/plots/dependence/01_total_liabilities.png",
+          "experiments/valuation/SHAP/xgb/plots/dependence/02_total_equity.png",
+          "experiments/valuation/SHAP/xgb/plots/dependence/03_liabilities_to_assets.png",
+          "experiments/valuation/SHAP/xgb/plots/dependence/04_total_debt.png",
+          "experiments/valuation/SHAP/xgb/plots/dependence/05_revenue.png",
+          "experiments/valuation/SHAP/xgb/plots/dependence/06_cash_and_equivalents.png"
+        ],
+        "local_explanations": [
+          "experiments/valuation/SHAP/xgb/plots/local_explanations/01_emsf_2025.png",
+          "experiments/valuation/SHAP/xgb/plots/local_explanations/02_edsa_2025.png",
+          "experiments/valuation/SHAP/xgb/plots/local_explanations/03_xhg_2025.png",
+          "experiments/valuation/SHAP/xgb/plots/local_explanations/04_ry_2025.png",
+          "experiments/valuation/SHAP/xgb/plots/local_explanations/05_kpti_2025.png"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "target_col": "total_assets",
+  "log_target": true,
+  "train_rows": 20266,
+  "val_rows": 1730,
+  "years": [
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "clip": {
+    "use_quantile_clip": true,
+    "q_lo": 0.005,
+    "q_hi": 0.995,
+    "lo": 15.06004524230957,
+    "hi": 27.57544708251953,
+    "margin": 0.2
+  },
+  "config": {
+    "hidden_dims": [
+      256,
+      128
+    ],
+    "dropout": 0.2,
+    "lr": 0.0005,
+    "weight_decay": 1e-05,
+    "loss_fn": "HuberLoss",
+    "huber_delta": 0.5,
+    "l1_in_layers": 0.0,
+    "l2_in_layers": 1e-06,
+    "lr_scheduler": "reduce_on_plateau",
+    "lr_factor": 0.5,
+    "lr_patience": 20,
+    "lr_min": 1e-06,
+    "lr_threshold": 5e-05,
+    "lr_cooldown": 5,
+    "batch_size": 128,
+    "epochs_max": 500,
+    "early_stopping": true,
+    "patience": 40,
+    "min_delta": 0.0001,
+    "restore_best": true,
+    "log1p_feature_transform": true,
+    "log1p_feature_count": 3,
+    "log1p_features": [
+      "cash_and_equivalents",
+      "total_debt",
+      "capex"
+    ]
+  },
+  "training": {
+    "best_epoch": 245,
+    "best_val_loss": 0.005719267877789106,
+    "stopped_early": true,
+    "final_lr": 3.125e-05,
+    "lr_reductions": 4
+  },
+  "metrics": {
+    "baseline_rmse_log": 2.740690231323242,
+    "baseline_factor": 15.49767838855409,
+    "train_rmse_log": 0.35995649991725304,
+    "train_factor": 1.4332670659682976,
+    "val_rmse_log": 0.26781627576577366,
+    "val_factor": 1.3071069707259038,
+    "train_r2_log": 0.9799951944303762,
+    "val_r2_log": 0.9900396553792213,
+    "train_r2_raw": 0.6818269643905868,
+    "val_r2_raw": 0.9200903659600048,
+    "val_mape_raw": 0.16201950228608958,
+    "train_rmse_raw": 73962502552.31345,
+    "val_rmse_raw": 40660334609.98991
+  }
+}

@@ -1,0 +1,1058 @@
+{
+  "config": {
+    "data_path": "data/processed/main_dataset.csv",
+    "out_dir": "experiments/valuation/runs/pca_report_artifacts",
+    "pipeline": "residual",
+    "seed": 42,
+    "explained_variance_target": 0.95,
+    "max_components": 64,
+    "feature_selection_enabled": true,
+    "log1p_feature_transform_enabled": true,
+    "top_k_loadings": 10
+  },
+  "data_points": {
+    "rows_total": 21996,
+    "rows_train": 20266,
+    "rows_val": 1730,
+    "val_years": [
+      2025,
+      2026
+    ]
+  },
+  "features": {
+    "raw_feature_count": 27,
+    "selected_feature_count": 23,
+    "log1p_feature_count": 4,
+    "used_news_feature_count": 0,
+    "used_news_features": [],
+    "has_identity_base_feature": true,
+    "selected_feature_names": [
+      "total_equity",
+      "total_debt",
+      "revenue",
+      "identity_base_assets",
+      "cfo",
+      "operating_income",
+      "net_debt",
+      "cash_and_equivalents",
+      "net_income",
+      "capex",
+      "fcf",
+      "roa",
+      "news_count",
+      "fcf_margin",
+      "interest_coverage",
+      "liabilities_to_assets",
+      "capex_to_revenue",
+      "gross_margin",
+      "net_margin",
+      "operating_margin",
+      "quick_ratio",
+      "current_ratio",
+      "roe"
+    ],
+    "log1p_feature_names": [
+      "total_debt",
+      "identity_base_assets",
+      "cash_and_equivalents",
+      "capex"
+    ],
+    "feature_selection": {
+      "selection_applied": true,
+      "raw_feature_count": 27,
+      "selected_feature_count": 23,
+      "min_abs_target_corr": 0.01,
+      "max_features": 200,
+      "max_inter_feature_corr": 0.98,
+      "min_features_floor": 20,
+      "mean_abs_target_corr_selected": 0.18250904696557246,
+      "top_abs_target_corr_features": [
+        {
+          "feature": "total_equity",
+          "abs_corr": 0.39561582094456543
+        },
+        {
+          "feature": "total_debt",
+          "abs_corr": 0.38884546341244364
+        },
+        {
+          "feature": "revenue",
+          "abs_corr": 0.37345182215301115
+        },
+        {
+          "feature": "identity_base_assets",
+          "abs_corr": 0.3625132403226148
+        },
+        {
+          "feature": "cfo",
+          "abs_corr": 0.3366294295687628
+        },
+        {
+          "feature": "total_liabilities",
+          "abs_corr": 0.33554800130087353
+        },
+        {
+          "feature": "operating_income",
+          "abs_corr": 0.32795399543676546
+        },
+        {
+          "feature": "net_debt",
+          "abs_corr": 0.32292035220251447
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "abs_corr": 0.3000542580766683
+        },
+        {
+          "feature": "net_income",
+          "abs_corr": 0.2917659145281303
+        },
+        {
+          "feature": "capex",
+          "abs_corr": 0.285024062277637
+        },
+        {
+          "feature": "fcf",
+          "abs_corr": 0.26364325915916265
+        },
+        {
+          "feature": "roa",
+          "abs_corr": 0.1616573194196924
+        },
+        {
+          "feature": "news_count",
+          "abs_corr": 0.11911728202514622
+        },
+        {
+          "feature": "fcf_margin",
+          "abs_corr": 0.04765603099604205
+        },
+        {
+          "feature": "interest_coverage",
+          "abs_corr": 0.04587086328557378
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "abs_corr": 0.03833089834854323
+        },
+        {
+          "feature": "working_capital_to_assets",
+          "abs_corr": 0.038174295485888014
+        },
+        {
+          "feature": "capex_to_revenue",
+          "abs_corr": 0.029245012188610236
+        },
+        {
+          "feature": "gross_margin",
+          "abs_corr": 0.027752344615176432
+        }
+      ],
+      "dropped_feature_count": 4
+    }
+  },
+  "pca": {
+    "n_features_in": 23,
+    "n_components": 17,
+    "explained_variance_ratio_cumulative": 0.9588128558039515,
+    "top_loadings_by_component": {
+      "PC1": [
+        {
+          "feature": "operating_income",
+          "loading": -0.39032241702079773,
+          "abs_loading": 0.39032241702079773
+        },
+        {
+          "feature": "cfo",
+          "loading": -0.37814298272132874,
+          "abs_loading": 0.37814298272132874
+        },
+        {
+          "feature": "net_income",
+          "loading": -0.37635689973831177,
+          "abs_loading": 0.37635689973831177
+        },
+        {
+          "feature": "revenue",
+          "loading": -0.3546430170536041,
+          "abs_loading": 0.3546430170536041
+        },
+        {
+          "feature": "total_equity",
+          "loading": -0.3519752323627472,
+          "abs_loading": 0.3519752323627472
+        },
+        {
+          "feature": "fcf",
+          "loading": -0.3322010040283203,
+          "abs_loading": 0.3322010040283203
+        },
+        {
+          "feature": "identity_base_assets",
+          "loading": -0.24049745500087738,
+          "abs_loading": 0.24049745500087738
+        },
+        {
+          "feature": "net_debt",
+          "loading": -0.22052735090255737,
+          "abs_loading": 0.22052735090255737
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": -0.21359187364578247,
+          "abs_loading": 0.21359187364578247
+        },
+        {
+          "feature": "total_debt",
+          "loading": -0.1586330533027649,
+          "abs_loading": 0.1586330533027649
+        }
+      ],
+      "PC2": [
+        {
+          "feature": "operating_margin",
+          "loading": -0.5123602747917175,
+          "abs_loading": 0.5123602747917175
+        },
+        {
+          "feature": "net_margin",
+          "loading": -0.5084338784217834,
+          "abs_loading": 0.5084338784217834
+        },
+        {
+          "feature": "fcf_margin",
+          "loading": -0.4973912239074707,
+          "abs_loading": 0.4973912239074707
+        },
+        {
+          "feature": "capex_to_revenue",
+          "loading": 0.38230252265930176,
+          "abs_loading": 0.38230252265930176
+        },
+        {
+          "feature": "gross_margin",
+          "loading": -0.2793598175048828,
+          "abs_loading": 0.2793598175048828
+        },
+        {
+          "feature": "total_debt",
+          "loading": -0.03921261429786682,
+          "abs_loading": 0.03921261429786682
+        },
+        {
+          "feature": "identity_base_assets",
+          "loading": -0.03589764982461929,
+          "abs_loading": 0.03589764982461929
+        },
+        {
+          "feature": "net_income",
+          "loading": 0.02645665779709816,
+          "abs_loading": 0.02645665779709816
+        },
+        {
+          "feature": "operating_income",
+          "loading": 0.02595142461359501,
+          "abs_loading": 0.02595142461359501
+        },
+        {
+          "feature": "cfo",
+          "loading": 0.02523808926343918,
+          "abs_loading": 0.02523808926343918
+        }
+      ],
+      "PC3": [
+        {
+          "feature": "identity_base_assets",
+          "loading": -0.47575923800468445,
+          "abs_loading": 0.47575923800468445
+        },
+        {
+          "feature": "capex",
+          "loading": -0.4385487139225006,
+          "abs_loading": 0.4385487139225006
+        },
+        {
+          "feature": "total_debt",
+          "loading": -0.42207494378089905,
+          "abs_loading": 0.42207494378089905
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": -0.42052578926086426,
+          "abs_loading": 0.42052578926086426
+        },
+        {
+          "feature": "net_income",
+          "loading": 0.21137215197086334,
+          "abs_loading": 0.21137215197086334
+        },
+        {
+          "feature": "operating_income",
+          "loading": 0.1924762725830078,
+          "abs_loading": 0.1924762725830078
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.19133025407791138,
+          "abs_loading": 0.19133025407791138
+        },
+        {
+          "feature": "cfo",
+          "loading": 0.18149462342262268,
+          "abs_loading": 0.18149462342262268
+        },
+        {
+          "feature": "news_count",
+          "loading": -0.16042937338352203,
+          "abs_loading": 0.16042937338352203
+        },
+        {
+          "feature": "roa",
+          "loading": -0.13893333077430725,
+          "abs_loading": 0.13893333077430725
+        }
+      ],
+      "PC4": [
+        {
+          "feature": "gross_margin",
+          "loading": -0.6746265888214111,
+          "abs_loading": 0.6746265888214111
+        },
+        {
+          "feature": "capex_to_revenue",
+          "loading": 0.5473381280899048,
+          "abs_loading": 0.5473381280899048
+        },
+        {
+          "feature": "net_margin",
+          "loading": 0.34696823358535767,
+          "abs_loading": 0.34696823358535767
+        },
+        {
+          "feature": "operating_margin",
+          "loading": 0.3374810218811035,
+          "abs_loading": 0.3374810218811035
+        },
+        {
+          "feature": "fcf_margin",
+          "loading": 0.09687012434005737,
+          "abs_loading": 0.09687012434005737
+        },
+        {
+          "feature": "capex",
+          "loading": 0.019539864733815193,
+          "abs_loading": 0.019539864733815193
+        },
+        {
+          "feature": "roa",
+          "loading": 0.01845109462738037,
+          "abs_loading": 0.01845109462738037
+        },
+        {
+          "feature": "identity_base_assets",
+          "loading": -0.016412850469350815,
+          "abs_loading": 0.016412850469350815
+        },
+        {
+          "feature": "total_debt",
+          "loading": 0.01479968149214983,
+          "abs_loading": 0.01479968149214983
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": -0.012014137580990791,
+          "abs_loading": 0.012014137580990791
+        }
+      ],
+      "PC5": [
+        {
+          "feature": "net_debt",
+          "loading": -0.6718383431434631,
+          "abs_loading": 0.6718383431434631
+        },
+        {
+          "feature": "news_count",
+          "loading": 0.4078212380409241,
+          "abs_loading": 0.4078212380409241
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.3821278512477875,
+          "abs_loading": 0.3821278512477875
+        },
+        {
+          "feature": "total_equity",
+          "loading": -0.2979457676410675,
+          "abs_loading": 0.2979457676410675
+        },
+        {
+          "feature": "capex",
+          "loading": 0.2213984876871109,
+          "abs_loading": 0.2213984876871109
+        },
+        {
+          "feature": "cfo",
+          "loading": 0.19076018035411835,
+          "abs_loading": 0.19076018035411835
+        },
+        {
+          "feature": "quick_ratio",
+          "loading": -0.17086851596832275,
+          "abs_loading": 0.17086851596832275
+        },
+        {
+          "feature": "total_debt",
+          "loading": -0.09976114332675934,
+          "abs_loading": 0.09976114332675934
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": -0.06609277427196503,
+          "abs_loading": 0.06609277427196503
+        },
+        {
+          "feature": "net_income",
+          "loading": 0.05812278389930725,
+          "abs_loading": 0.05812278389930725
+        }
+      ],
+      "PC6": [
+        {
+          "feature": "roa",
+          "loading": 0.606647789478302,
+          "abs_loading": 0.606647789478302
+        },
+        {
+          "feature": "roe",
+          "loading": 0.5801621675491333,
+          "abs_loading": 0.5801621675491333
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": 0.3394530415534973,
+          "abs_loading": 0.3394530415534973
+        },
+        {
+          "feature": "news_count",
+          "loading": -0.2317054122686386,
+          "abs_loading": 0.2317054122686386
+        },
+        {
+          "feature": "interest_coverage",
+          "loading": 0.21005778014659882,
+          "abs_loading": 0.21005778014659882
+        },
+        {
+          "feature": "net_debt",
+          "loading": -0.17352081835269928,
+          "abs_loading": 0.17352081835269928
+        },
+        {
+          "feature": "quick_ratio",
+          "loading": 0.15761670470237732,
+          "abs_loading": 0.15761670470237732
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.10426592081785202,
+          "abs_loading": 0.10426592081785202
+        },
+        {
+          "feature": "total_equity",
+          "loading": -0.07278189063072205,
+          "abs_loading": 0.07278189063072205
+        },
+        {
+          "feature": "current_ratio",
+          "loading": 0.06823764741420746,
+          "abs_loading": 0.06823764741420746
+        }
+      ],
+      "PC7": [
+        {
+          "feature": "current_ratio",
+          "loading": 0.7163508534431458,
+          "abs_loading": 0.7163508534431458
+        },
+        {
+          "feature": "quick_ratio",
+          "loading": 0.649604082107544,
+          "abs_loading": 0.649604082107544
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": -0.18659363687038422,
+          "abs_loading": 0.18659363687038422
+        },
+        {
+          "feature": "roe",
+          "loading": -0.11263587325811386,
+          "abs_loading": 0.11263587325811386
+        },
+        {
+          "feature": "net_debt",
+          "loading": -0.0787612795829773,
+          "abs_loading": 0.0787612795829773
+        },
+        {
+          "feature": "news_count",
+          "loading": 0.05997597426176071,
+          "abs_loading": 0.05997597426176071
+        },
+        {
+          "feature": "roa",
+          "loading": -0.04708508029580116,
+          "abs_loading": 0.04708508029580116
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.04078416898846626,
+          "abs_loading": 0.04078416898846626
+        },
+        {
+          "feature": "identity_base_assets",
+          "loading": 0.034775909036397934,
+          "abs_loading": 0.034775909036397934
+        },
+        {
+          "feature": "total_equity",
+          "loading": -0.03382197022438049,
+          "abs_loading": 0.03382197022438049
+        }
+      ],
+      "PC8": [
+        {
+          "feature": "interest_coverage",
+          "loading": 0.6796755194664001,
+          "abs_loading": 0.6796755194664001
+        },
+        {
+          "feature": "roe",
+          "loading": -0.5211595296859741,
+          "abs_loading": 0.5211595296859741
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": 0.504570722579956,
+          "abs_loading": 0.504570722579956
+        },
+        {
+          "feature": "total_debt",
+          "loading": 0.060616716742515564,
+          "abs_loading": 0.060616716742515564
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": -0.04897693917155266,
+          "abs_loading": 0.04897693917155266
+        },
+        {
+          "feature": "current_ratio",
+          "loading": 0.04647884890437126,
+          "abs_loading": 0.04647884890437126
+        },
+        {
+          "feature": "roa",
+          "loading": -0.043009985238313675,
+          "abs_loading": 0.043009985238313675
+        },
+        {
+          "feature": "net_debt",
+          "loading": -0.02834077924489975,
+          "abs_loading": 0.02834077924489975
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.01891232095658779,
+          "abs_loading": 0.01891232095658779
+        },
+        {
+          "feature": "total_equity",
+          "loading": -0.014956299215555191,
+          "abs_loading": 0.014956299215555191
+        }
+      ],
+      "PC9": [
+        {
+          "feature": "liabilities_to_assets",
+          "loading": -0.6980199813842773,
+          "abs_loading": 0.6980199813842773
+        },
+        {
+          "feature": "interest_coverage",
+          "loading": 0.6258342266082764,
+          "abs_loading": 0.6258342266082764
+        },
+        {
+          "feature": "news_count",
+          "loading": -0.22680333256721497,
+          "abs_loading": 0.22680333256721497
+        },
+        {
+          "feature": "current_ratio",
+          "loading": -0.1799321174621582,
+          "abs_loading": 0.1799321174621582
+        },
+        {
+          "feature": "roe",
+          "loading": 0.14453576505184174,
+          "abs_loading": 0.14453576505184174
+        },
+        {
+          "feature": "roa",
+          "loading": -0.07357276231050491,
+          "abs_loading": 0.07357276231050491
+        },
+        {
+          "feature": "net_debt",
+          "loading": -0.069109708070755,
+          "abs_loading": 0.069109708070755
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.046502090990543365,
+          "abs_loading": 0.046502090990543365
+        },
+        {
+          "feature": "total_debt",
+          "loading": 0.03245800733566284,
+          "abs_loading": 0.03245800733566284
+        },
+        {
+          "feature": "quick_ratio",
+          "loading": 0.028801120817661285,
+          "abs_loading": 0.028801120817661285
+        }
+      ],
+      "PC10": [
+        {
+          "feature": "quick_ratio",
+          "loading": -0.6885843873023987,
+          "abs_loading": 0.6885843873023987
+        },
+        {
+          "feature": "current_ratio",
+          "loading": 0.6597379446029663,
+          "abs_loading": 0.6597379446029663
+        },
+        {
+          "feature": "roe",
+          "loading": 0.21470868587493896,
+          "abs_loading": 0.21470868587493896
+        },
+        {
+          "feature": "interest_coverage",
+          "loading": 0.14371132850646973,
+          "abs_loading": 0.14371132850646973
+        },
+        {
+          "feature": "roa",
+          "loading": -0.08678081631660461,
+          "abs_loading": 0.08678081631660461
+        },
+        {
+          "feature": "net_debt",
+          "loading": 0.08525336533784866,
+          "abs_loading": 0.08525336533784866
+        },
+        {
+          "feature": "fcf",
+          "loading": -0.04407588392496109,
+          "abs_loading": 0.04407588392496109
+        },
+        {
+          "feature": "total_equity",
+          "loading": 0.039497438818216324,
+          "abs_loading": 0.039497438818216324
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": -0.039162542670965195,
+          "abs_loading": 0.039162542670965195
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": -0.035225771367549896,
+          "abs_loading": 0.035225771367549896
+        }
+      ],
+      "PC11": [
+        {
+          "feature": "news_count",
+          "loading": 0.5899443030357361,
+          "abs_loading": 0.5899443030357361
+        },
+        {
+          "feature": "roe",
+          "loading": 0.5171314477920532,
+          "abs_loading": 0.5171314477920532
+        },
+        {
+          "feature": "roa",
+          "loading": -0.43737226724624634,
+          "abs_loading": 0.43737226724624634
+        },
+        {
+          "feature": "interest_coverage",
+          "loading": 0.24521903693675995,
+          "abs_loading": 0.24521903693675995
+        },
+        {
+          "feature": "quick_ratio",
+          "loading": 0.20831066370010376,
+          "abs_loading": 0.20831066370010376
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": 0.19262011349201202,
+          "abs_loading": 0.19262011349201202
+        },
+        {
+          "feature": "net_debt",
+          "loading": 0.14650793373584747,
+          "abs_loading": 0.14650793373584747
+        },
+        {
+          "feature": "current_ratio",
+          "loading": -0.1062425971031189,
+          "abs_loading": 0.1062425971031189
+        },
+        {
+          "feature": "fcf",
+          "loading": -0.0895228162407875,
+          "abs_loading": 0.0895228162407875
+        },
+        {
+          "feature": "total_equity",
+          "loading": 0.055655792355537415,
+          "abs_loading": 0.055655792355537415
+        }
+      ],
+      "PC12": [
+        {
+          "feature": "roa",
+          "loading": -0.6269040107727051,
+          "abs_loading": 0.6269040107727051
+        },
+        {
+          "feature": "news_count",
+          "loading": -0.5711528062820435,
+          "abs_loading": 0.5711528062820435
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": 0.2455700933933258,
+          "abs_loading": 0.2455700933933258
+        },
+        {
+          "feature": "net_debt",
+          "loading": -0.22926409542560577,
+          "abs_loading": 0.22926409542560577
+        },
+        {
+          "feature": "total_debt",
+          "loading": 0.2179676592350006,
+          "abs_loading": 0.2179676592350006
+        },
+        {
+          "feature": "roe",
+          "loading": 0.2012293040752411,
+          "abs_loading": 0.2012293040752411
+        },
+        {
+          "feature": "capex",
+          "loading": 0.15724658966064453,
+          "abs_loading": 0.15724658966064453
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.13849033415317535,
+          "abs_loading": 0.13849033415317535
+        },
+        {
+          "feature": "interest_coverage",
+          "loading": -0.10174565017223358,
+          "abs_loading": 0.10174565017223358
+        },
+        {
+          "feature": "total_equity",
+          "loading": -0.09860319644212723,
+          "abs_loading": 0.09860319644212723
+        }
+      ],
+      "PC13": [
+        {
+          "feature": "total_debt",
+          "loading": -0.7863544225692749,
+          "abs_loading": 0.7863544225692749
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": 0.5124120712280273,
+          "abs_loading": 0.5124120712280273
+        },
+        {
+          "feature": "capex",
+          "loading": 0.2415093332529068,
+          "abs_loading": 0.2415093332529068
+        },
+        {
+          "feature": "news_count",
+          "loading": -0.13691125810146332,
+          "abs_loading": 0.13691125810146332
+        },
+        {
+          "feature": "interest_coverage",
+          "loading": 0.07993241399526596,
+          "abs_loading": 0.07993241399526596
+        },
+        {
+          "feature": "total_equity",
+          "loading": 0.07605034857988358,
+          "abs_loading": 0.07605034857988358
+        },
+        {
+          "feature": "fcf",
+          "loading": -0.0738079622387886,
+          "abs_loading": 0.0738079622387886
+        },
+        {
+          "feature": "roa",
+          "loading": -0.0573153980076313,
+          "abs_loading": 0.0573153980076313
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "loading": 0.057300690561532974,
+          "abs_loading": 0.057300690561532974
+        },
+        {
+          "feature": "revenue",
+          "loading": 0.05467219650745392,
+          "abs_loading": 0.05467219650745392
+        }
+      ],
+      "PC14": [
+        {
+          "feature": "capex",
+          "loading": 0.7978616952896118,
+          "abs_loading": 0.7978616952896118
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": -0.4813026785850525,
+          "abs_loading": 0.4813026785850525
+        },
+        {
+          "feature": "identity_base_assets",
+          "loading": -0.26961830258369446,
+          "abs_loading": 0.26961830258369446
+        },
+        {
+          "feature": "net_debt",
+          "loading": 0.15543200075626373,
+          "abs_loading": 0.15543200075626373
+        },
+        {
+          "feature": "fcf",
+          "loading": -0.08460550010204315,
+          "abs_loading": 0.08460550010204315
+        },
+        {
+          "feature": "gross_margin",
+          "loading": 0.07657924294471741,
+          "abs_loading": 0.07657924294471741
+        },
+        {
+          "feature": "revenue",
+          "loading": 0.06007065623998642,
+          "abs_loading": 0.06007065623998642
+        },
+        {
+          "feature": "total_equity",
+          "loading": 0.05171343684196472,
+          "abs_loading": 0.05171343684196472
+        },
+        {
+          "feature": "total_debt",
+          "loading": -0.04550500586628914,
+          "abs_loading": 0.04550500586628914
+        },
+        {
+          "feature": "fcf_margin",
+          "loading": -0.04493989422917366,
+          "abs_loading": 0.04493989422917366
+        }
+      ],
+      "PC15": [
+        {
+          "feature": "fcf_margin",
+          "loading": 0.586434543132782,
+          "abs_loading": 0.586434543132782
+        },
+        {
+          "feature": "gross_margin",
+          "loading": -0.5444759726524353,
+          "abs_loading": 0.5444759726524353
+        },
+        {
+          "feature": "capex_to_revenue",
+          "loading": -0.4141668677330017,
+          "abs_loading": 0.4141668677330017
+        },
+        {
+          "feature": "net_margin",
+          "loading": -0.2940675914287567,
+          "abs_loading": 0.2940675914287567
+        },
+        {
+          "feature": "operating_margin",
+          "loading": -0.2852485179901123,
+          "abs_loading": 0.2852485179901123
+        },
+        {
+          "feature": "capex",
+          "loading": 0.08942945301532745,
+          "abs_loading": 0.08942945301532745
+        },
+        {
+          "feature": "total_debt",
+          "loading": -0.07976634800434113,
+          "abs_loading": 0.07976634800434113
+        },
+        {
+          "feature": "revenue",
+          "loading": 0.05892259255051613,
+          "abs_loading": 0.05892259255051613
+        },
+        {
+          "feature": "fcf",
+          "loading": -0.02434529922902584,
+          "abs_loading": 0.02434529922902584
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": -0.02172180823981762,
+          "abs_loading": 0.02172180823981762
+        }
+      ],
+      "PC16": [
+        {
+          "feature": "revenue",
+          "loading": 0.7402918338775635,
+          "abs_loading": 0.7402918338775635
+        },
+        {
+          "feature": "net_debt",
+          "loading": -0.4484606981277466,
+          "abs_loading": 0.4484606981277466
+        },
+        {
+          "feature": "fcf",
+          "loading": -0.31789350509643555,
+          "abs_loading": 0.31789350509643555
+        },
+        {
+          "feature": "total_equity",
+          "loading": 0.28538504242897034,
+          "abs_loading": 0.28538504242897034
+        },
+        {
+          "feature": "operating_income",
+          "loading": -0.170068621635437,
+          "abs_loading": 0.170068621635437
+        },
+        {
+          "feature": "cfo",
+          "loading": -0.1417756825685501,
+          "abs_loading": 0.1417756825685501
+        },
+        {
+          "feature": "total_debt",
+          "loading": 0.06997596472501755,
+          "abs_loading": 0.06997596472501755
+        },
+        {
+          "feature": "net_income",
+          "loading": -0.06461217254400253,
+          "abs_loading": 0.06461217254400253
+        },
+        {
+          "feature": "capex",
+          "loading": -0.057186394929885864,
+          "abs_loading": 0.057186394929885864
+        },
+        {
+          "feature": "fcf_margin",
+          "loading": -0.042074136435985565,
+          "abs_loading": 0.042074136435985565
+        }
+      ],
+      "PC17": [
+        {
+          "feature": "total_equity",
+          "loading": -0.5397151708602905,
+          "abs_loading": 0.5397151708602905
+        },
+        {
+          "feature": "revenue",
+          "loading": 0.49873673915863037,
+          "abs_loading": 0.49873673915863037
+        },
+        {
+          "feature": "net_income",
+          "loading": -0.46795129776000977,
+          "abs_loading": 0.46795129776000977
+        },
+        {
+          "feature": "net_debt",
+          "loading": 0.3503636121749878,
+          "abs_loading": 0.3503636121749878
+        },
+        {
+          "feature": "fcf",
+          "loading": 0.2359277755022049,
+          "abs_loading": 0.2359277755022049
+        },
+        {
+          "feature": "cfo",
+          "loading": 0.20553354918956757,
+          "abs_loading": 0.20553354918956757
+        },
+        {
+          "feature": "identity_base_assets",
+          "loading": -0.11188236624002457,
+          "abs_loading": 0.11188236624002457
+        },
+        {
+          "feature": "operating_income",
+          "loading": -0.06083042174577713,
+          "abs_loading": 0.06083042174577713
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "loading": 0.0436917208135128,
+          "abs_loading": 0.0436917208135128
+        },
+        {
+          "feature": "roa",
+          "loading": 0.029022442176938057,
+          "abs_loading": 0.029022442176938057
+        }
+      ]
+    }
+  },
+  "preprocessing": {
+    "pipeline": "residual",
+    "news": {
+      "applied": false
+    }
+  },
+  "artifacts": {
+    "explained_variance_csv": "experiments/valuation/runs/pca_report_artifacts/pca_explained_variance.csv",
+    "component_loadings_csv": "experiments/valuation/runs/pca_report_artifacts/pca_component_loadings.csv",
+    "train_scores_csv": "experiments/valuation/runs/pca_report_artifacts/pca_scores_train.csv",
+    "val_scores_csv": "experiments/valuation/runs/pca_report_artifacts/pca_scores_val.csv",
+    "summary_json": "experiments/valuation/runs/pca_report_artifacts/pca_summary.json"
+  }
+}

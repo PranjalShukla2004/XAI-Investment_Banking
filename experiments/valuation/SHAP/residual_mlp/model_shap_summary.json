@@ -1,0 +1,360 @@
+{
+  "model_name": "residual_mlp",
+  "metrics": {
+    "baseline_rmse_log": 0.462801069021225,
+    "baseline_rmse_raw": 202252288.0,
+    "baseline_mape_raw": 0.008460046723484993,
+    "train_rmse_log": 0.29233528086471466,
+    "val_rmse_log": 0.06231240483588091,
+    "train_r2_log": 0.9868053839233214,
+    "val_r2_log": 0.9994608005298073,
+    "val_rmse_raw": 21319956862.88077,
+    "val_r2_raw": 0.9780300085238214,
+    "val_mape_raw": 0.013639910212544763
+  },
+  "model_details": {
+    "train_rows": 20266,
+    "validation_rows": 1730,
+    "years": [
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "clip": {
+      "use_quantile_clip": true,
+      "q_lo": 0.005,
+      "q_hi": 0.995,
+      "clip_lo": 15.06004524230957,
+      "clip_hi": 27.57544708251953,
+      "clip_margin": 0.2
+    },
+    "feature_selection": {
+      "selection_applied": true,
+      "raw_feature_count": 27,
+      "selected_feature_count": 23,
+      "min_abs_target_corr": 0.01,
+      "max_features": 200,
+      "max_inter_feature_corr": 0.98,
+      "min_features_floor": 20,
+      "mean_abs_target_corr_selected": 0.18250904696557246,
+      "top_abs_target_corr_features": [
+        {
+          "feature": "total_equity",
+          "abs_corr": 0.39561582094456543
+        },
+        {
+          "feature": "total_debt",
+          "abs_corr": 0.38884546341244364
+        },
+        {
+          "feature": "revenue",
+          "abs_corr": 0.37345182215301115
+        },
+        {
+          "feature": "identity_base_assets",
+          "abs_corr": 0.3625132403226148
+        },
+        {
+          "feature": "cfo",
+          "abs_corr": 0.3366294295687628
+        },
+        {
+          "feature": "total_liabilities",
+          "abs_corr": 0.33554800130087353
+        },
+        {
+          "feature": "operating_income",
+          "abs_corr": 0.32795399543676546
+        },
+        {
+          "feature": "net_debt",
+          "abs_corr": 0.32292035220251447
+        },
+        {
+          "feature": "cash_and_equivalents",
+          "abs_corr": 0.3000542580766683
+        },
+        {
+          "feature": "net_income",
+          "abs_corr": 0.2917659145281303
+        },
+        {
+          "feature": "capex",
+          "abs_corr": 0.285024062277637
+        },
+        {
+          "feature": "fcf",
+          "abs_corr": 0.26364325915916265
+        },
+        {
+          "feature": "roa",
+          "abs_corr": 0.1616573194196924
+        },
+        {
+          "feature": "news_count",
+          "abs_corr": 0.11911728202514622
+        },
+        {
+          "feature": "fcf_margin",
+          "abs_corr": 0.04765603099604205
+        },
+        {
+          "feature": "interest_coverage",
+          "abs_corr": 0.04587086328557378
+        },
+        {
+          "feature": "liabilities_to_assets",
+          "abs_corr": 0.03833089834854323
+        },
+        {
+          "feature": "working_capital_to_assets",
+          "abs_corr": 0.038174295485888014
+        },
+        {
+          "feature": "capex_to_revenue",
+          "abs_corr": 0.029245012188610236
+        },
+        {
+          "feature": "gross_margin",
+          "abs_corr": 0.027752344615176432
+        }
+      ],
+      "dropped_feature_count": 4
+    },
+    "log1p_feature_names": [
+      "total_debt",
+      "identity_base_assets",
+      "cash_and_equivalents",
+      "capex"
+    ],
+    "pca": {
+      "enabled": false,
+      "n_features_in": 23,
+      "n_components": 23,
+      "explained_variance_ratio_cum": 1.0
+    },
+    "training": {
+      "best_epoch": 68,
+      "best_val_loss": 0.0007325003045227598,
+      "stopped_early": true,
+      "final_lr": 0.000125,
+      "lr_reductions": 2
+    },
+    "config": {
+      "data_path": "data/processed/main_dataset.csv",
+      "out_dir": "experiments/valuation/SHAP/residual_mlp",
+      "target_col": "total_assets",
+      "log_target": true,
+      "liabilities_col": "total_liabilities",
+      "equity_col": "total_equity",
+      "base_feature_col": "identity_base_assets",
+      "time_col": "fiscal_year",
+      "min_val_rows": 20,
+      "random_seed": 42,
+      "val_ratio_fallback": 0.2,
+      "epochs": 500,
+      "batch_size": 128,
+      "lr": 0.0005,
+      "weight_decay": 1e-05,
+      "print_every": 10,
+      "early_stopping": true,
+      "patience": 40,
+      "min_delta": 0.0001,
+      "restore_best": true,
+      "lr_scheduler": "reduce_on_plateau",
+      "lr_factor": 0.5,
+      "lr_patience": 20,
+      "lr_min": 1e-06,
+      "lr_threshold": 5e-05,
+      "lr_cooldown": 5,
+      "huber_delta": 0.1,
+      "use_quantile_clip": true,
+      "clip_q_lo": 0.005,
+      "clip_q_hi": 0.995,
+      "clip_margin": 0.2,
+      "use_log1p_feature_transform": true,
+      "enable_feature_selection": true,
+      "min_abs_target_corr": 0.01,
+      "max_features_by_target_corr": 200,
+      "max_inter_feature_corr": 0.98,
+      "min_features_after_selection": 20,
+      "enable_pca": false,
+      "pca_explained_variance": 0.95,
+      "pca_max_components": 64,
+      "hidden_dims": [
+        128,
+        64
+      ],
+      "dropout": 0.2,
+      "activation": "relu",
+      "init": "he",
+      "weight_scale": 0.01,
+      "l2_in_layers": 5e-06,
+      "l1_in_layers": 1e-07
+    }
+  },
+  "feature_representation": {
+    "kind": "processed_selected_features_residual_only_shap",
+    "notes": "Selected features follow residual_mlp preprocessing, including log1p transforms. Residual SHAP explains the learned correction only; the direct additive identity baseline term is excluded from the SHAP feature set."
+  },
+  "feature_names": [
+    "total_equity",
+    "total_debt",
+    "revenue",
+    "identity_base_assets",
+    "cfo",
+    "operating_income",
+    "net_debt",
+    "cash_and_equivalents",
+    "net_income",
+    "capex",
+    "fcf",
+    "roa",
+    "news_count",
+    "fcf_margin",
+    "interest_coverage",
+    "liabilities_to_assets",
+    "capex_to_revenue",
+    "gross_margin",
+    "net_margin",
+    "operating_margin",
+    "quick_ratio",
+    "current_ratio",
+    "roe"
+  ],
+  "artifacts": {
+    "predictions": "experiments/valuation/SHAP/residual_mlp/validation_predictions.csv",
+    "shap_rows": "experiments/valuation/SHAP/residual_mlp/validation_shap_rows.csv",
+    "shap_values": "experiments/valuation/SHAP/residual_mlp/validation_shap_values.npz",
+    "feature_importance": "experiments/valuation/SHAP/residual_mlp/validation_shap_feature_importance.csv",
+    "local_explanations": "experiments/valuation/SHAP/residual_mlp/validation_shap_top_error_local_explanations.csv",
+    "importance_bar_plot": "experiments/valuation/SHAP/residual_mlp/validation_shap_importance_bar.png",
+    "beeswarm_plot": "experiments/valuation/SHAP/residual_mlp/validation_shap_beeswarm.png"
+  },
+  "shap": {
+    "shap_method": "shap_kernel_explainer_residual_only",
+    "rows_explained": 128,
+    "attribution_scale": "learned_residual_on_log1p(total_assets)_scale",
+    "explanation_view": "residual_only",
+    "feature_count": 23,
+    "status": "ok",
+    "prediction_reconstruction_mean_abs_diff": 2.075953852397061e-09,
+    "prediction_reconstruction_max_abs_diff": 2.618543899768344e-08,
+    "top_features_by_mean_abs_shap": [
+      {
+        "rank": 1,
+        "feature": "identity_base_assets",
+        "mean_abs_shap": 0.08082128947330602,
+        "mean_shap": -0.0022840448507395195,
+        "std_abs_shap": 0.12147218497671852,
+        "mean_feature_value": 21.23685897141695,
+        "std_feature_value": 2.5958349674426087
+      },
+      {
+        "rank": 2,
+        "feature": "cash_and_equivalents",
+        "mean_abs_shap": 0.016676465998457957,
+        "mean_shap": 0.00022779505569303637,
+        "std_abs_shap": 0.02501210692794101,
+        "mean_feature_value": 18.491961918771267,
+        "std_feature_value": 2.520880751887134
+      },
+      {
+        "rank": 3,
+        "feature": "capex",
+        "mean_abs_shap": 0.011033951530862396,
+        "mean_shap": 0.002366837614772521,
+        "std_abs_shap": 0.024933371336201465,
+        "mean_feature_value": 15.353367522358894,
+        "std_feature_value": 5.989909022772412
+      },
+      {
+        "rank": 4,
+        "feature": "news_count",
+        "mean_abs_shap": 0.007683304429292548,
+        "mean_shap": 0.003852711289482613,
+        "std_abs_shap": 0.020740251409392098,
+        "mean_feature_value": 2.84375,
+        "std_feature_value": 1.53316207150451
+      },
+      {
+        "rank": 5,
+        "feature": "roa",
+        "mean_abs_shap": 0.007309719654081448,
+        "mean_shap": -0.002161099267190991,
+        "std_abs_shap": 0.02784933580578089,
+        "mean_feature_value": -0.09389569926497643,
+        "std_feature_value": 0.526779185896958
+      },
+      {
+        "rank": 6,
+        "feature": "net_debt",
+        "mean_abs_shap": 0.007087651230108349,
+        "mean_shap": -0.002836224486031824,
+        "std_abs_shap": 0.016349198230451653,
+        "mean_feature_value": 1637402104.2512512,
+        "std_feature_value": 4416782436.809266
+      },
+      {
+        "rank": 7,
+        "feature": "total_debt",
+        "mean_abs_shap": 0.006672010416366447,
+        "mean_shap": 0.0020694031239258948,
+        "std_abs_shap": 0.014634276490868344,
+        "mean_feature_value": 15.984254725277424,
+        "std_feature_value": 8.422701092748254
+      },
+      {
+        "rank": 8,
+        "feature": "fcf_margin",
+        "mean_abs_shap": 0.004950262929071414,
+        "mean_shap": -0.00046801116405958965,
+        "std_abs_shap": 0.01576172498057507,
+        "mean_feature_value": -0.09715191916984622,
+        "std_feature_value": 1.149006604807063
+      },
+      {
+        "rank": 9,
+        "feature": "revenue",
+        "mean_abs_shap": 0.004815844245797507,
+        "mean_shap": -0.00072418588462142,
+        "std_abs_shap": 0.013481862459120173,
+        "mean_feature_value": 6117435315.2265625,
+        "std_feature_value": 13725228320.145319
+      },
+      {
+        "rank": 10,
+        "feature": "total_equity",
+        "mean_abs_shap": 0.004534582765700179,
+        "mean_shap": -0.00042292905891372357,
+        "std_abs_shap": 0.013732046982915795,
+        "mean_feature_value": 4717536426.75,
+        "std_feature_value": 11350244671.004335
+      }
+    ]
+  },
+  "plot_status": {
+    "importance_bar": {
+      "created": true,
+      "path": "experiments/valuation/SHAP/residual_mlp/validation_shap_importance_bar.png"
+    },
+    "beeswarm": {
+      "created": true,
+      "path": "experiments/valuation/SHAP/residual_mlp/validation_shap_beeswarm.png"
+    }
+  }
+}

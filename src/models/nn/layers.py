@@ -66,6 +66,7 @@ class DenseConfig:
     init: str = "he"          # "he" or "xavier" or "normal"
     weight_scale: float = 0.01  # used if init == "normal"
     l2: float = 0.0           # L2 regularization strength (lambda)
+    l1: float = 0.0           # L1 regularization strength (lambda)
     seed: Optional[int] = None
 
 
@@ -138,6 +139,9 @@ class Dense(Layer):
         # L2 regularization gradient term: lambda * W
         if self.cfg.l2 and self.cfg.l2 > 0.0:
             self.dW = self.dW + self.cfg.l2 * self.W
+        # L1 regularization gradient term: lambda * sign(W)
+        if self.cfg.l1 and self.cfg.l1 > 0.0:
+            self.dW = self.dW + self.cfg.l1 * np.sign(self.W)
 
         return dx
 
@@ -148,10 +152,13 @@ class Dense(Layer):
         return {"W": self.dW, "b": self.db}
 
     def reg_loss(self) -> float:
-        # (lambda/2) * ||W||^2 is standard
+        # (lambda/2) * ||W||^2 + lambda * ||W||_1
+        reg = 0.0
         if self.cfg.l2 and self.cfg.l2 > 0.0:
-            return 0.5 * self.cfg.l2 * float(np.sum(self.W * self.W))
-        return 0.0
+            reg += 0.5 * self.cfg.l2 * float(np.sum(self.W * self.W))
+        if self.cfg.l1 and self.cfg.l1 > 0.0:
+            reg += self.cfg.l1 * float(np.sum(np.abs(self.W)))
+        return float(reg)
 
 
 class Dropout(Layer):
