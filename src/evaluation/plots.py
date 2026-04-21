@@ -4,27 +4,33 @@ import json
 from pathlib import Path
 from typing import Dict, List
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 
+# Dissertation reporting now keeps only XGBoost and a single MLP row.
+# The reported MLP metrics come from the residual-MLP run artifacts.
 ARTIFACTS: Dict[str, Dict[str, Path]] = {
-    "MLP (Direct)": {
-        "summary": Path("data/processed/valuation_artifacts/run_summary.json"),
-        "predictions": Path("data/processed/valuation_artifacts/predictions.csv"),
-    },
     "XGBoost": {
-        "summary": Path("data/processed/xgb_valuation_artifacts/run_summary.json"),
-        "predictions": Path("data/processed/xgb_valuation_artifacts/predictions.csv"),
+        "summary": Path("experiments/valuation/runs/xgb_valuation_artifacts/run_summary.json"),
+        "predictions": Path("experiments/valuation/runs/xgb_valuation_artifacts/predictions.csv"),
     },
-    "MLP (Residual)": {
-        "summary": Path("data/processed/residual_mlp_valuation_artifacts/run_summary.json"),
-        "predictions": Path("data/processed/residual_mlp_valuation_artifacts/predictions.csv"),
+    "MLP": {
+        "summary": Path("experiments/valuation/runs/residual_mlp_valuation_artifacts/run_summary.json"),
+        "predictions": Path("experiments/valuation/runs/residual_mlp_valuation_artifacts/predictions.csv"),
     },
 }
 
-OUT_DIR = Path("experiments/plots")
+METRICS_DIR = Path("experiments/valuation/metrics")
+PLOTS_DIR = Path("experiments/valuation/plots")
+
+
+def _maybe_import_pyplot():
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError:
+        return None
+    return plt
 
 
 def _load_json(path: Path) -> dict:
@@ -63,7 +69,11 @@ def _load_val_predictions(path: Path) -> pd.DataFrame:
     return out
 
 
-def _plot_core_metrics(df: pd.DataFrame, out_dir: Path) -> Path:
+def _plot_core_metrics(df: pd.DataFrame, out_dir: Path) -> Path | None:
+    plt = _maybe_import_pyplot()
+    if plt is None:
+        return None
+
     metrics = [
         ("val_mape_raw", "Val MAPE (raw) ↓", False),
         ("val_rmse_log", "Val RMSE (log) ↓", False),
@@ -81,7 +91,7 @@ def _plot_core_metrics(df: pd.DataFrame, out_dir: Path) -> Path:
         vals = df[col].to_numpy(dtype=np.float64)
         bars = ax.bar(df["model"], vals, color=colors[: len(df)], edgecolor="black", linewidth=0.8)
         ax.set_title(title)
-        ax.tick_params(axis="x", rotation=15)
+        ax.tick_params(axis="x", rotation=0)
         if use_log_y:
             ax.set_yscale("log")
 
@@ -107,7 +117,11 @@ def _plot_core_metrics(df: pd.DataFrame, out_dir: Path) -> Path:
     return out_path
 
 
-def _plot_error_quantiles(preds_by_model: Dict[str, pd.DataFrame], out_dir: Path) -> Path:
+def _plot_error_quantiles(
+    preds_by_model: Dict[str, pd.DataFrame],
+    plot_dir: Path,
+    metrics_dir: Path,
+) -> Path | None:
     quantiles = [0.5, 0.75, 0.9, 0.95]
     q_labels = [f"p{int(q*100)}" for q in quantiles]
     models = list(preds_by_model.keys())
@@ -117,8 +131,17 @@ def _plot_error_quantiles(preds_by_model: Dict[str, pd.DataFrame], out_dir: Path
         rel_err = preds_by_model[model]["rel_err"].to_numpy(dtype=np.float64)
         q_table[model] = [float(np.quantile(rel_err, q)) for q in quantiles]
 
+    q_df = pd.DataFrame({"quantile": q_labels})
+    for model in models:
+        q_df[model] = q_table[model]
+    q_df.to_csv(metrics_dir / "validation_relative_error_quantiles.csv", index=False)
+
+    plt = _maybe_import_pyplot()
+    if plt is None:
+        return None
+
     x = np.arange(len(q_labels), dtype=np.float64)
-    width = 0.25
+    width = min(0.35, 0.8 / max(len(models), 1))
     fig, ax = plt.subplots(figsize=(11, 6.5))
     colors = ["#457b9d", "#2a9d8f", "#e76f51"]
 
@@ -145,19 +168,18 @@ def _plot_error_quantiles(preds_by_model: Dict[str, pd.DataFrame], out_dir: Path
     ax.grid(axis="y", linestyle="--", alpha=0.35)
     fig.tight_layout()
 
-    out_path = out_dir / "validation_relative_error_quantiles.png"
+    out_path = plot_dir / "validation_relative_error_quantiles.png"
     fig.savefig(out_path, dpi=220, bbox_inches="tight")
     plt.close(fig)
-
-    q_df = pd.DataFrame({"quantile": q_labels})
-    for model in models:
-        q_df[model] = q_table[model]
-    q_df.to_csv(out_dir / "validation_relative_error_quantiles.csv", index=False)
 
     return out_path
 
 
-def _plot_error_cdf(preds_by_model: Dict[str, pd.DataFrame], out_dir: Path) -> Path:
+def _plot_error_cdf(preds_by_model: Dict[str, pd.DataFrame], out_dir: Path) -> Path | None:
+    plt = _maybe_import_pyplot()
+    if plt is None:
+        return None
+
     fig, ax = plt.subplots(figsize=(11, 6.5))
     colors = ["#457b9d", "#2a9d8f", "#e76f51"]
 
@@ -190,26 +212,30 @@ def _plot_error_cdf(preds_by_model: Dict[str, pd.DataFrame], out_dir: Path) -> P
 
 
 def main() -> None:
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    METRICS_DIR.mkdir(parents=True, exist_ok=True)
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
 
     summary_df = _load_summaries()
-    summary_df.to_csv(OUT_DIR / "validation_metrics_table.csv", index=False)
+    summary_df.to_csv(METRICS_DIR / "validation_metrics_table.csv", index=False)
 
     preds_by_model = {
         model: _load_val_predictions(paths["predictions"])
         for model, paths in ARTIFACTS.items()
     }
 
-    p1 = _plot_core_metrics(summary_df, OUT_DIR)
-    p2 = _plot_error_quantiles(preds_by_model, OUT_DIR)
-    p3 = _plot_error_cdf(preds_by_model, OUT_DIR)
+    p1 = _plot_core_metrics(summary_df, PLOTS_DIR)
+    p2 = _plot_error_quantiles(preds_by_model, PLOTS_DIR, METRICS_DIR)
+    p3 = _plot_error_cdf(preds_by_model, PLOTS_DIR)
 
-    print("Saved plots:")
-    print(f"- {p1}")
-    print(f"- {p2}")
-    print(f"- {p3}")
-    print(f"- {OUT_DIR / 'validation_metrics_table.csv'}")
-    print(f"- {OUT_DIR / 'validation_relative_error_quantiles.csv'}")
+    if any(path is not None for path in (p1, p2, p3)):
+        print("Saved plots:")
+        for path in (p1, p2, p3):
+            if path is not None:
+                print(f"- {path}")
+    else:
+        print("Plot generation skipped because matplotlib is not installed.")
+    print(f"- {METRICS_DIR / 'validation_metrics_table.csv'}")
+    print(f"- {METRICS_DIR / 'validation_relative_error_quantiles.csv'}")
 
 
 if __name__ == "__main__":

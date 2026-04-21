@@ -1,0 +1,259 @@
+{
+  "model_name": "valuation2",
+  "metrics": {
+    "baseline_rmse_log": 2.740690231323242,
+    "baseline_rmse_raw": 147723829248.0,
+    "baseline_mape_raw": 14.635279655456543,
+    "train_rmse_log": 0.4166278803495106,
+    "val_rmse_log": 0.3267713106700387,
+    "train_r2_log": 0.9732002370515853,
+    "val_r2_log": 0.9851718055637655,
+    "val_rmse_raw": 44938619912.30503,
+    "val_r2_raw": 0.9023894619014113,
+    "val_mape_raw": 0.18656567079732347
+  },
+  "model_details": {
+    "train_rows": 20266,
+    "validation_rows": 1730,
+    "years": [
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "clip": {
+      "use_quantile_clip": true,
+      "q_lo": 0.005,
+      "q_hi": 0.995,
+      "clip_lo": 15.06004524230957,
+      "clip_hi": 27.57544708251953,
+      "clip_margin": 0.2
+    },
+    "log1p_feature_names": [
+      "cash_and_equivalents",
+      "total_debt",
+      "capex"
+    ],
+    "training": {
+      "best_epoch": 126,
+      "best_val_loss": 0.008328378924399858,
+      "stopped_early": true,
+      "final_lr": 0.0011250000000000001,
+      "lr_reductions": 0,
+      "lr_increases": 2,
+      "lr_scheduler_switches": 0,
+      "lr_scheduler_mode_last": "increase"
+    },
+    "config": {
+      "data_path": "data/processed/main_dataset.csv",
+      "out_dir": "experiments/valuation/SHAP/valuation2",
+      "target_col": "total_assets",
+      "log_target": true,
+      "time_col": "fiscal_year",
+      "min_val_rows": 20,
+      "random_seed": 42,
+      "val_ratio_fallback": 0.2,
+      "epochs": 500,
+      "batch_size": 128,
+      "lr": 0.0005,
+      "weight_decay": 1e-05,
+      "print_every": 10,
+      "early_stopping": true,
+      "patience": 40,
+      "min_delta": 0.0001,
+      "restore_best": true,
+      "lr_scheduler": "dynamic_on_plateau",
+      "lr_factor": 0.5,
+      "lr_patience": 20,
+      "lr_min": 1e-06,
+      "lr_threshold": 5e-05,
+      "lr_cooldown": 5,
+      "huber_delta": 0.5,
+      "use_quantile_clip": true,
+      "clip_q_lo": 0.005,
+      "clip_q_hi": 0.995,
+      "clip_margin": 0.2,
+      "use_log1p_feature_transform": true,
+      "hidden_dims": [
+        256,
+        128
+      ],
+      "dropout": 0.2,
+      "activation": "relu",
+      "init": "he",
+      "weight_scale": 0.01,
+      "l2_in_layers": 1e-06,
+      "l1_in_layers": 0.0,
+      "lr_increase_factor": 1.5,
+      "lr_max": 0.005,
+      "dynamic_lr_start_mode": "increase",
+      "dynamic_lr_switch_patience": 2
+    }
+  },
+  "feature_representation": {
+    "kind": "processed_selected_features_direct_mlp_shap",
+    "notes": "Selected features follow src.models.valuation.valuation2 preprocessing, including log1p transforms."
+  },
+  "feature_names": [
+    "current_ratio",
+    "quick_ratio",
+    "working_capital_to_assets",
+    "debt_to_equity",
+    "liabilities_to_assets",
+    "interest_coverage",
+    "net_debt",
+    "gross_margin",
+    "operating_margin",
+    "net_margin",
+    "roa",
+    "roe",
+    "fcf_margin",
+    "cfo_to_net_income",
+    "capex_to_revenue",
+    "revenue",
+    "net_income",
+    "operating_income",
+    "total_liabilities",
+    "total_equity",
+    "cash_and_equivalents",
+    "total_debt",
+    "cfo",
+    "capex",
+    "fcf",
+    "news_count"
+  ],
+  "artifacts": {
+    "predictions": "experiments/valuation/SHAP/valuation2/validation_predictions.csv",
+    "shap_rows": "experiments/valuation/SHAP/valuation2/validation_shap_rows.csv",
+    "shap_values": "experiments/valuation/SHAP/valuation2/validation_shap_values.npz",
+    "feature_importance": "experiments/valuation/SHAP/valuation2/validation_shap_feature_importance.csv",
+    "local_explanations": "experiments/valuation/SHAP/valuation2/validation_shap_top_error_local_explanations.csv",
+    "importance_bar_plot": "experiments/valuation/SHAP/valuation2/validation_shap_importance_bar.png",
+    "beeswarm_plot": "experiments/valuation/SHAP/valuation2/validation_shap_beeswarm.png"
+  },
+  "shap": {
+    "shap_method": "shap_kernel_explainer_full_prediction",
+    "rows_explained": 128,
+    "attribution_scale": "log1p(total_assets)",
+    "explanation_view": "full_prediction",
+    "feature_count": 26,
+    "status": "ok",
+    "prediction_reconstruction_mean_abs_diff": 8.86576526415439e-07,
+    "prediction_reconstruction_max_abs_diff": 1.066131815719018e-06,
+    "top_features_by_mean_abs_shap": [
+      {
+        "rank": 1,
+        "feature": "total_equity",
+        "mean_abs_shap": 0.5933511294424534,
+        "mean_shap": 0.0023238396970555186,
+        "std_abs_shap": 0.35341296005548095,
+        "mean_feature_value": 4717536426.75,
+        "std_feature_value": 11350244671.004335
+      },
+      {
+        "rank": 2,
+        "feature": "total_liabilities",
+        "mean_abs_shap": 0.4926786762807751,
+        "mean_shap": -0.06591387592197862,
+        "std_abs_shap": 0.4017031667904489,
+        "mean_feature_value": 30859833040.609375,
+        "std_feature_value": 152570944993.87027
+      },
+      {
+        "rank": 3,
+        "feature": "total_debt",
+        "mean_abs_shap": 0.43015144648961723,
+        "mean_shap": 0.05550907040014863,
+        "std_abs_shap": 0.25735292497014084,
+        "mean_feature_value": 15.984254725277424,
+        "std_feature_value": 8.422701092748254
+      },
+      {
+        "rank": 4,
+        "feature": "cash_and_equivalents",
+        "mean_abs_shap": 0.387440083486581,
+        "mean_shap": -0.0022209982307686005,
+        "std_abs_shap": 0.4082428185346611,
+        "mean_feature_value": 18.491961918771267,
+        "std_feature_value": 2.520880751887134
+      },
+      {
+        "rank": 5,
+        "feature": "roa",
+        "mean_abs_shap": 0.16544021889421856,
+        "mean_shap": 0.01739304562943289,
+        "std_abs_shap": 0.21406063152931568,
+        "mean_feature_value": -0.09389569926497643,
+        "std_feature_value": 0.526779185896958
+      },
+      {
+        "rank": 6,
+        "feature": "revenue",
+        "mean_abs_shap": 0.15859387794625945,
+        "mean_shap": 0.03031946116243489,
+        "std_abs_shap": 0.1158290866732833,
+        "mean_feature_value": 6117435315.2265625,
+        "std_feature_value": 13725228320.145319
+      },
+      {
+        "rank": 7,
+        "feature": "capex",
+        "mean_abs_shap": 0.1358880011830479,
+        "mean_shap": 0.008837848610710353,
+        "std_abs_shap": 0.13829940712037606,
+        "mean_feature_value": 15.353367522358894,
+        "std_feature_value": 5.989909022772412
+      },
+      {
+        "rank": 8,
+        "feature": "net_income",
+        "mean_abs_shap": 0.07379340115585364,
+        "mean_shap": 0.030755030951695517,
+        "std_abs_shap": 0.12191414349955226,
+        "mean_feature_value": 486203047.7080078,
+        "std_feature_value": 1228832869.5684278
+      },
+      {
+        "rank": 9,
+        "feature": "quick_ratio",
+        "mean_abs_shap": 0.05434875214268686,
+        "mean_shap": 0.017541345914651174,
+        "std_abs_shap": 0.08343852321621797,
+        "mean_feature_value": 1.9867228546791011,
+        "std_feature_value": 5.4328324642311765
+      },
+      {
+        "rank": 10,
+        "feature": "net_debt",
+        "mean_abs_shap": 0.052017041663930286,
+        "mean_shap": 0.015280868370609824,
+        "std_abs_shap": 0.07228383477750737,
+        "mean_feature_value": 1637402104.2512512,
+        "std_feature_value": 4416782436.809266
+      }
+    ]
+  },
+  "plot_status": {
+    "importance_bar": {
+      "created": true,
+      "path": "experiments/valuation/SHAP/valuation2/validation_shap_importance_bar.png"
+    },
+    "beeswarm": {
+      "created": true,
+      "path": "experiments/valuation/SHAP/valuation2/validation_shap_beeswarm.png"
+    }
+  }
+}

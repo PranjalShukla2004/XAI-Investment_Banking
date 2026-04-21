@@ -1,0 +1,53 @@
+{
+  "config": {
+    "shap_dir": "experiments/risk/SHAP",
+    "max_features": 15,
+    "max_dependence_plots": 12,
+    "max_local_plots": 12,
+    "dpi": 200
+  },
+  "root_plots": {
+    "metric_comparison": "experiments/risk/SHAP/plots/model_metric_comparison.png",
+    "absolute_error_cdf": "experiments/risk/SHAP/plots/model_absolute_error_cdf.png"
+  },
+  "models": {
+    "mlp": {
+      "model_dir": "experiments/risk/SHAP/mlp",
+      "plots_dir": "experiments/risk/SHAP/mlp/plots",
+      "files": {
+        "actual_vs_pred": "experiments/risk/SHAP/mlp/plots/validation_actual_vs_pred.png",
+        "absolute_error_hist": "experiments/risk/SHAP/mlp/plots/validation_absolute_error_hist.png",
+        "error_vs_target": "experiments/risk/SHAP/mlp/plots/validation_error_vs_target.png",
+        "feature_importance": "experiments/risk/SHAP/mlp/plots/validation_feature_importance.png",
+        "dependence_plots": [
+          "experiments/risk/SHAP/mlp/plots/dependence/01_high_low_range_21d.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/02_volatility_63d.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/03_roa.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/04_drawdown_126d.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/05_total_equity.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/06_volatility_21d.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/07_avg_transactions_21d.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/08_fcf.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/09_news_count.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/10_revenue.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/11_total_assets.png",
+          "experiments/risk/SHAP/mlp/plots/dependence/12_total_liabilities.png"
+        ],
+        "local_explanations": [
+          "experiments/risk/SHAP/mlp/plots/local_explanations/01_anna_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/02_deck_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/03_oustz_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/04_rpt_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/05_ibkr_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/06_wpp_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/07_jetu_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/08_flyu_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/09_bwnb_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/10_mltx_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/11_dd_2024.png",
+          "experiments/risk/SHAP/mlp/plots/local_explanations/12_lee_2024.png"
+        ]
+      }
+    }
+  }
+}

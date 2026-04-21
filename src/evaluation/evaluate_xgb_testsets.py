@@ -23,7 +23,8 @@ from src.models.valuation.exp_xgb_valuation import (
 
 
 def _normalize_tickers(series: pd.Series) -> pd.Series:
-    return series.astype(str).str.upper().str.strip()
+    out = series.astype(str).str.upper().str.strip()
+    return out.replace({"": pd.NA, "NAN": pd.NA, "NONE": pd.NA, "<NA>": pd.NA, "NULL": pd.NA})
 
 
 def _target_to_model_scale(df: pd.DataFrame, cfg: ExpXGBValuationConfig) -> np.ndarray:
@@ -56,21 +57,22 @@ def _inner_train_val_indices(train_df: pd.DataFrame, seed: int, val_ratio: float
     n_val_target = max(1, int(round(n_rows * float(val_ratio))))
     if "ticker" in train_df.columns:
         tickers = _normalize_tickers(train_df["ticker"])
-        uniq = tickers.unique()
+        valid_tickers = tickers.loc[tickers.notna()]
+        uniq = valid_tickers.unique()
         if uniq.size > 1:
             rng = np.random.default_rng(seed)
             shuffled = np.array(uniq, dtype=object)
             rng.shuffle(shuffled)
-            counts = tickers.value_counts().to_dict()
+            counts = valid_tickers.value_counts().to_dict()
             chosen: List[str] = []
             rows_accum = 0
             for t in shuffled:
                 ts = str(t)
                 chosen.append(ts)
-                rows_accum += int(counts[ts])
+                rows_accum += int(counts.get(ts, 0))
                 if rows_accum >= n_val_target and len(chosen) < uniq.size:
                     break
-            val_mask = tickers.isin(chosen).to_numpy()
+            val_mask = tickers.isin(chosen).fillna(False).to_numpy()
             if np.any(val_mask) and np.any(~val_mask):
                 val_idx = np.flatnonzero(val_mask)
                 fit_idx = np.flatnonzero(~val_mask)
@@ -219,7 +221,7 @@ def main() -> None:
     ap.add_argument("--main", type=str, default="data/processed/main_dataset.csv")
     ap.add_argument("--test-out-of-time", type=str, default="data/processed/test_dataset_out_of_time.csv")
     ap.add_argument("--test-unseen-tickers", type=str, default="data/processed/test_dataset_unseen_tickers.csv")
-    ap.add_argument("--out-dir", type=str, default="experiments/valuation/runs/exp_xgb_evaluation_artifacts")
+    ap.add_argument("--out-dir", type=str, default="experiments/valuation/runs/xgb_evaluation_artifacts")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--use-sample-weights", action="store_true")
     args = ap.parse_args()
@@ -246,7 +248,7 @@ def main() -> None:
     oot_preds_path = out_dir / "xgb_test_out_of_time_predictions.csv"
     res_oot["predictions"].to_csv(oot_preds_path, index=False)
 
-    unseen_tickers = set(_normalize_tickers(unseen_prepped["ticker"])) if "ticker" in unseen_prepped.columns else set()
+    unseen_tickers = set(_normalize_tickers(unseen_prepped["ticker"]).dropna()) if "ticker" in unseen_prepped.columns else set()
     train_unseen = (
         main_prepped[~_normalize_tickers(main_prepped["ticker"]).isin(unseen_tickers)].copy()
         if "ticker" in main_prepped.columns and unseen_tickers

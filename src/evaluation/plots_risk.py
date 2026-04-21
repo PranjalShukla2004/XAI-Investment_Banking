@@ -1,0 +1,247 @@
+from __future__ import annotations
+
+import json
+import os
+from pathlib import Path
+from typing import Dict, List
+
+import numpy as np
+import pandas as pd
+
+
+os.environ.setdefault("MPLCONFIGDIR", str((Path("/tmp") / "matplotlib").resolve()))
+os.environ.setdefault("XDG_CACHE_HOME", str((Path("/tmp") / "xdg-cache").resolve()))
+
+
+ARTIFACTS: Dict[str, Dict[str, Path]] = {
+    "XGBoost": {
+        "summary": Path("experiments/risk/runs/xgb_risk_artifacts/run_summary.json"),
+        "predictions": Path("experiments/risk/runs/xgb_risk_artifacts/predictions.csv"),
+    },
+    "MLP": {
+        "summary": Path("experiments/risk/runs/mlp_risk_artifacts/run_summary.json"),
+        "predictions": Path("experiments/risk/runs/mlp_risk_artifacts/predictions.csv"),
+    },
+}
+
+METRICS_DIR = Path("experiments/risk/metrics")
+PLOTS_DIR = Path("experiments/risk/plots")
+
+
+def _maybe_import_pyplot():
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError:
+        return None
+    return plt
+
+
+def _load_json(path: Path) -> dict:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing file: {path}")
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def _load_summaries() -> pd.DataFrame:
+    rows: List[dict] = []
+    for model_name, paths in ARTIFACTS.items():
+        payload = _load_json(paths["summary"])
+        metrics = payload.get("metrics", {})
+        rows.append(
+            {
+                "model": model_name,
+                "val_mae": float(metrics.get("val_mae", np.nan)),
+                "val_rmse": float(metrics.get("val_rmse", np.nan)),
+                "val_r2": float(metrics.get("val_r2", np.nan)),
+                "val_spearman": float(metrics.get("val_spearman", np.nan)),
+                "val_pearson": float(metrics.get("val_pearson", np.nan)),
+                "val_p90_abs_error": float(metrics.get("val_p90_abs_error", np.nan)),
+                "val_p95_abs_error": float(metrics.get("val_p95_abs_error", np.nan)),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _load_val_predictions(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(f"Missing predictions file: {path}")
+    df = pd.read_csv(path)
+    if "split" not in df.columns or "y_true" not in df.columns or "y_pred" not in df.columns:
+        raise ValueError(f"Predictions file missing required columns: {path}")
+    out = df[df["split"] == "val"].copy()
+    out["abs_err"] = np.abs(out["y_pred"] - out["y_true"])
+    out["sq_err"] = (out["y_pred"] - out["y_true"]) ** 2
+    return out
+
+
+def _plot_core_metrics(df: pd.DataFrame, out_dir: Path) -> Path | None:
+    plt = _maybe_import_pyplot()
+    if plt is None:
+        return None
+
+    metrics = [
+        ("val_mae", "Val MAE ↓"),
+        ("val_rmse", "Val RMSE ↓"),
+        ("val_p95_abs_error", "Val p95 Abs Error ↓"),
+        ("val_r2", "Val R2 ↑"),
+        ("val_spearman", "Val Spearman ↑"),
+        ("val_pearson", "Val Pearson ↑"),
+    ]
+
+    fig, axes = plt.subplots(2, 3, figsize=(16, 9))
+    axes = axes.ravel()
+    colors = ["#457b9d", "#2a9d8f", "#e76f51"]
+
+    for i, (col, title) in enumerate(metrics):
+        ax = axes[i]
+        vals = df[col].to_numpy(dtype=np.float64)
+        bars = ax.bar(df["model"], vals, color=colors[: len(df)], edgecolor="black", linewidth=0.8)
+        ax.set_title(title)
+        ax.tick_params(axis="x", rotation=0)
+
+        for b, v in zip(bars, vals):
+            ax.annotate(
+                f"{v:.4g}",
+                xy=(b.get_x() + b.get_width() / 2, b.get_height()),
+                xytext=(0, 4),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+            )
+
+    fig.suptitle("Validation Performance Comparison (Risk)", fontsize=15)
+    fig.tight_layout()
+
+    out_path = out_dir / "validation_performance_comparison.png"
+    fig.savefig(out_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
+def _plot_error_quantiles(
+    preds_by_model: Dict[str, pd.DataFrame],
+    plot_dir: Path,
+    metrics_dir: Path,
+) -> Path | None:
+    quantiles = [0.5, 0.75, 0.9, 0.95]
+    q_labels = [f"p{int(q * 100)}" for q in quantiles]
+    models = list(preds_by_model.keys())
+
+    q_table: Dict[str, List[float]] = {}
+    for model in models:
+        abs_err = preds_by_model[model]["abs_err"].to_numpy(dtype=np.float64)
+        q_table[model] = [float(np.quantile(abs_err, q)) for q in quantiles]
+
+    q_df = pd.DataFrame({"quantile": q_labels})
+    for model in models:
+        q_df[model] = q_table[model]
+    q_df.to_csv(metrics_dir / "validation_absolute_error_quantiles.csv", index=False)
+
+    plt = _maybe_import_pyplot()
+    if plt is None:
+        return None
+
+    x = np.arange(len(q_labels), dtype=np.float64)
+    width = min(0.35, 0.8 / max(len(models), 1))
+    fig, ax = plt.subplots(figsize=(11, 6.5))
+    colors = ["#457b9d", "#2a9d8f", "#e76f51"]
+
+    for i, model in enumerate(models):
+        offs = (i - (len(models) - 1) / 2.0) * width
+        vals = q_table[model]
+        bars = ax.bar(x + offs, vals, width=width, label=model, color=colors[i], edgecolor="black", linewidth=0.6)
+        for b, v in zip(bars, vals):
+            ax.annotate(
+                f"{v:.3f}",
+                xy=(b.get_x() + b.get_width() / 2, b.get_height()),
+                xytext=(0, 3),
+                textcoords="offset points",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(q_labels)
+    ax.set_ylabel("Absolute Error")
+    ax.set_title("Validation Absolute Error Quantiles")
+    ax.legend()
+    ax.grid(axis="y", linestyle="--", alpha=0.35)
+    fig.tight_layout()
+
+    out_path = plot_dir / "validation_absolute_error_quantiles.png"
+    fig.savefig(out_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
+def _plot_error_cdf(preds_by_model: Dict[str, pd.DataFrame], out_dir: Path) -> Path | None:
+    plt = _maybe_import_pyplot()
+    if plt is None:
+        return None
+
+    fig, ax = plt.subplots(figsize=(11, 6.5))
+    colors = ["#457b9d", "#2a9d8f", "#e76f51"]
+
+    global_p995 = 0.0
+    for df in preds_by_model.values():
+        abs_err = df["abs_err"].to_numpy(dtype=np.float64)
+        if abs_err.size:
+            global_p995 = max(global_p995, float(np.quantile(abs_err, 0.995)))
+    x_max = global_p995 if global_p995 > 0 else 1.0
+
+    for i, (model, df) in enumerate(preds_by_model.items()):
+        abs_err = np.sort(df["abs_err"].to_numpy(dtype=np.float64))
+        if abs_err.size == 0:
+            continue
+        y = np.arange(1, abs_err.size + 1, dtype=np.float64) / abs_err.size
+        mask = abs_err <= x_max
+        ax.plot(abs_err[mask], y[mask], linewidth=2.0, color=colors[i], label=model)
+
+    ax.set_xlabel("Absolute Error")
+    ax.set_ylabel("CDF")
+    ax.set_title("Validation Absolute Error CDF (truncated at p99.5)")
+    ax.grid(True, linestyle="--", alpha=0.35)
+    ax.legend()
+    fig.tight_layout()
+
+    out_path = out_dir / "validation_absolute_error_cdf.png"
+    fig.savefig(out_path, dpi=220, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
+
+
+def main() -> None:
+    METRICS_DIR.mkdir(parents=True, exist_ok=True)
+    PLOTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    summary_df = _load_summaries()
+    summary_df.to_csv(METRICS_DIR / "validation_metrics_table.csv", index=False)
+
+    preds_by_model = {
+        model: _load_val_predictions(paths["predictions"])
+        for model, paths in ARTIFACTS.items()
+    }
+
+    p1 = _plot_core_metrics(summary_df, PLOTS_DIR)
+    p2 = _plot_error_quantiles(preds_by_model, PLOTS_DIR, METRICS_DIR)
+    p3 = _plot_error_cdf(preds_by_model, PLOTS_DIR)
+
+    if any(path is not None for path in (p1, p2, p3)):
+        print("Saved plots:")
+        for path in (p1, p2, p3):
+            if path is not None:
+                print(f"- {path}")
+    else:
+        print("Plot generation skipped because matplotlib is not installed.")
+    print(f"- {METRICS_DIR / 'validation_metrics_table.csv'}")
+    print(f"- {METRICS_DIR / 'validation_absolute_error_quantiles.csv'}")
+
+
+if __name__ == "__main__":
+    main()

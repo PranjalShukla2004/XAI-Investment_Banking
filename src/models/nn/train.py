@@ -43,13 +43,18 @@ class TrainConfig:
     patience: int = 20
     min_delta: float = 0.0
     restore_best: bool = True
-    # LR scheduler: set lr_scheduler="reduce_on_plateau" to enable
-    lr_scheduler: str = "none"  # "none" | "reduce_on_plateau"
+    # LR scheduler:
+    # "none" | "reduce_on_plateau" | "increase_on_plateau" | "dynamic_on_plateau"
+    lr_scheduler: str = "none"
     lr_factor: float = 0.5
+    lr_increase_factor: float = 1.5
     lr_patience: int = 15
     lr_min: float = 1e-6
+    lr_max: float = 1e-2
     lr_threshold: float = 1e-4
     lr_cooldown: int = 0
+    dynamic_lr_start_mode: str = "reduce"
+    dynamic_lr_switch_patience: int = 2
 
 
 def _safe_reg_loss(model) -> float:
@@ -84,6 +89,45 @@ def _restore_params(model, snap: Dict[tuple, Array]) -> None:
             ref.value[...] = snap[key]
 
 
+def _normalize_lr_scheduler_name(name: str) -> str:
+    normalized = str(name).strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "none": "none",
+        "reduce_on_plateau": "reduce_on_plateau",
+        "reduceonplateau": "reduce_on_plateau",
+        "increase_on_plateau": "increase_on_plateau",
+        "increaselronplateau": "increase_on_plateau",
+        "increaseonplateau": "increase_on_plateau",
+        "dynamic_on_plateau": "dynamic_on_plateau",
+        "dynamiclronplateau": "dynamic_on_plateau",
+        "dynamiconplateau": "dynamic_on_plateau",
+    }
+    return aliases.get(normalized, normalized)
+
+
+def _normalize_dynamic_mode(mode: str) -> str:
+    normalized = str(mode).strip().lower()
+    if normalized not in {"reduce", "increase"}:
+        raise ValueError(f"dynamic_lr_start_mode must be 'reduce' or 'increase', got {mode!r}")
+    return normalized
+
+
+def _apply_lr_adjustment(optimizer, cfg: TrainConfig, mode: str) -> tuple[bool, float, float]:
+    old_lr = float(getattr(optimizer, "lr"))
+    if mode == "reduce":
+        new_lr = max(float(cfg.lr_min), old_lr * float(cfg.lr_factor))
+        changed = new_lr < old_lr
+    elif mode == "increase":
+        new_lr = min(float(cfg.lr_max), old_lr * float(cfg.lr_increase_factor))
+        changed = new_lr > old_lr
+    else:
+        raise ValueError(f"Unsupported LR scheduler mode: {mode!r}")
+
+    if changed:
+        optimizer.lr = new_lr
+    return changed, old_lr, float(getattr(optimizer, "lr"))
+
+
 def fit(
     model,
     criterion,
@@ -109,6 +153,9 @@ def fit(
         "val_metric": [],
         "lr": [],
         "lr_reductions": 0,
+        "lr_increases": 0,
+        "lr_scheduler_switches": 0,
+        "lr_scheduler_mode": [],
         "best_epoch": None,
         "best_val_loss": None,
         "stopped_early": False,
@@ -124,8 +171,12 @@ def fit(
             raise ValueError(f"w_val must have shape (N_val,), got {w_val.shape} for N_val={X_val.shape[0]}")
 
     use_early_stopping = bool(cfg.early_stopping and X_val is not None and y_val is not None)
+    scheduler_name = _normalize_lr_scheduler_name(cfg.lr_scheduler)
+    if scheduler_name not in {"none", "reduce_on_plateau", "increase_on_plateau", "dynamic_on_plateau"}:
+        raise ValueError(f"Unsupported lr_scheduler={cfg.lr_scheduler!r}")
+
     use_lr_scheduler = bool(
-        cfg.lr_scheduler == "reduce_on_plateau"
+        scheduler_name in {"reduce_on_plateau", "increase_on_plateau", "dynamic_on_plateau"}
         and X_val is not None
         and y_val is not None
         and hasattr(optimizer, "lr")
@@ -140,6 +191,10 @@ def fit(
     sched_bad_epochs = 0
     sched_cooldown_left = 0
     lr_reductions = 0
+    lr_increases = 0
+    lr_scheduler_switches = 0
+    dynamic_mode = _normalize_dynamic_mode(cfg.dynamic_lr_start_mode) if scheduler_name == "dynamic_on_plateau" else None
+    dynamic_actions_without_improve = 0
 
     for epoch in range(1, cfg.epochs + 1):
         # ---- train ----
@@ -208,24 +263,41 @@ def fit(
                 if val_loss < (sched_best_val - float(cfg.lr_threshold)):
                     sched_best_val = val_loss
                     sched_bad_epochs = 0
+                    if scheduler_name == "dynamic_on_plateau":
+                        dynamic_actions_without_improve = 0
                 else:
                     if sched_cooldown_left > 0:
                         sched_cooldown_left -= 1
                     else:
                         sched_bad_epochs += 1
                         if sched_bad_epochs >= int(cfg.lr_patience):
-                            old_lr = float(getattr(optimizer, "lr"))
-                            new_lr = max(float(cfg.lr_min), old_lr * float(cfg.lr_factor))
-                            if new_lr < old_lr:
-                                optimizer.lr = new_lr
-                                lr_reductions += 1
+                            active_mode = "reduce"
+                            if scheduler_name == "increase_on_plateau":
+                                active_mode = "increase"
+                            elif scheduler_name == "dynamic_on_plateau":
+                                active_mode = dynamic_mode if dynamic_mode is not None else "reduce"
+
+                            changed, _old_lr, _new_lr = _apply_lr_adjustment(optimizer, cfg, active_mode)
+                            if changed:
+                                if active_mode == "reduce":
+                                    lr_reductions += 1
+                                else:
+                                    lr_increases += 1
                                 sched_cooldown_left = int(cfg.lr_cooldown)
+
+                            if scheduler_name == "dynamic_on_plateau":
+                                dynamic_actions_without_improve += 1
+                                if dynamic_actions_without_improve >= int(cfg.dynamic_lr_switch_patience):
+                                    dynamic_mode = "increase" if active_mode == "reduce" else "reduce"
+                                    dynamic_actions_without_improve = 0
+                                    lr_scheduler_switches += 1
                             sched_bad_epochs = 0
         else:
             history["val_loss"].append(None)
             history["val_metric"].append(None)
 
         history["lr"].append(float(getattr(optimizer, "lr", np.nan)))
+        history["lr_scheduler_mode"].append(dynamic_mode if scheduler_name == "dynamic_on_plateau" else scheduler_name)
 
         if cfg.print_every and epoch % cfg.print_every == 0:
             msg = f"Epoch {epoch:03d} | train_loss={train_loss:.6f}"
@@ -249,5 +321,7 @@ def fit(
         history["best_val_loss"] = float(best_val_loss)
         history["best_epoch"] = int(best_epoch) if best_epoch is not None else None
     history["lr_reductions"] = int(lr_reductions)
+    history["lr_increases"] = int(lr_increases)
+    history["lr_scheduler_switches"] = int(lr_scheduler_switches)
 
     return history

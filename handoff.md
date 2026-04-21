@@ -1,205 +1,322 @@
 # Handoff Summary
 
-## 1) Project goal (what you're building)
-- Build an explainable investment-banking modelling pipeline with:
-- a valuation model that predicts firm value / `total_assets` from fundamentals + news features
-- a risk model that will predict upcoming 1-year drawdown using market data for the same ticker universe
+## 1) Project goal
+- Build an explainable investment-banking modeling pipeline with two parallel tracks:
+- a valuation track that now targets real valuation labels rather than only accounting size
+- a risk track that predicts future 1-year drawdown severity
 
-## 2) Current task (what you were doing just before context ended)
-- The current priority is now statistical testing for the valuation-model results.
-- The goal is to produce dissertation-ready statistical evidence for model performance, not just descriptive metrics.
-- The main comparison targets are:
-- `residual_mlp` as the primary model
-- `xgb` as the benchmark model
-- the accounting-identity baseline where relevant
-- The immediate work should focus on testing whether observed performance differences are statistically meaningful on the valuation test sets.
-- The risk-model pipeline remains paused.
+## 2) Current state
+- The repo now contains working valuation, risk, statistical-testing, and explainability pipelines.
+- The valuation codebase has two distinct layers:
+- legacy / benchmark accounting-size models around `total_assets`
+- the current real-valuation pipeline around `market_cap_target`
+- The risk pipeline is no longer paused. Both XGBoost and MLP risk models are implemented and runnable.
+- SHAP explainability now exists for both valuation and risk.
 
-## 3) What is already done
-- Valuation codebase was refactored into:
-- `src/models/valuation/`
-- `src/evaluation/`
+## 3) What is implemented
 
-- Run artifacts were moved to:
-- `experiments/valuation/runs/`
+### Valuation data and target building
+- Fundamental expansion script:
+- `src/data_fetch/fundamental/expand_main_dataset_fundamentals.py`
+- It expands `data/processed/main_dataset.csv` into:
+- `data/processed/main_dataset_expanded_fundamentals.csv`
+- It adds EBITDA, gross profit, SG&A, depreciation, retained earnings, per-share features, growth features, cash-flow fields, and missingness flags.
 
-- Existing valuation training/evaluation modules now include:
+- Valuation target builder:
+- `src/data_fetch/market/build_valuation_target_dataset.py`
+- It builds:
+- `data/processed/valuation/main_dataset_valuation_ready.csv`
+- `data/processed/valuation/main_dataset_valuation_targets.csv`
+- Current target columns include:
+- `market_cap_target`
+- `log_market_cap_target`
+- `enterprise_value_target`
+- `enterprise_value_target_clipped`
+- `log_enterprise_value_target`
+
+### Valuation models
+- Baseline direct MLP:
+- `src/models/valuation/valuation.py`
+- Target:
+- `total_assets`
+- Dataset:
+- `data/processed/main_dataset.csv`
+
+- Benchmark XGB:
 - `src/models/valuation/xgb_valuation.py`
-- `src/models/valuation/exp_xgb_valuation.py`
+- Target:
+- `total_assets`
+- Important note:
+- this is not apples-to-apples with the current real-valuation `final_valuation.py`
+
+- Residual valuation MLP:
 - `src/models/valuation/residual_mlp_valuation.py`
-- `src/models/valuation/news_driven_mlp_valuation.py`
+- Uses accounting identity residualization around `total_liabilities + total_equity`
+
+- Anchor-only residual ablation:
+- `src/models/valuation/anchor_residual_valuation.py`
+- Baseline is used only as an anchor
+- Accounting leakage features are excluded from `X`
+- Writes:
+- `experiments/valuation/runs/anchor_residual_valuation_artifacts/`
+
+- Scheduler experimentation runner:
+- `src/models/valuation/valuation2.py`
+- Uses the same simple MLP stack as `valuation.py`
+- Writes to:
+- `experiments/valuation/runs/valuation2_artifacts/`
+- Supports:
+- `IncreaseLRonPlateau`
+- `DynamicLRonPlateau`
+
+- Current primary real-valuation MLP:
 - `src/models/valuation/final_valuation.py`
+- Dataset:
+- `data/processed/valuation/main_dataset_valuation_ready.csv`
+- Target:
+- `market_cap_target`
+- Current training mode:
+- `log_multiple`
+- Current default denominator:
+- `revenue`
+- Reconstruction:
+- `exp(predicted_log_multiple) * revenue`
+- It filters:
+- `valuation_target_usable == True`
+- It excludes target-derived leakage columns before feature selection.
+- It uses:
+- engineered news features
+- correlation-based feature selection
+- optional PCA hook (implemented but disabled by default)
+- `increase_on_plateau` scheduler by default
+- Current default artifact directory:
+- `experiments/valuation/runs/final_valuation_artifacts/`
+
+### Shared neural-network training
+- `src/models/nn/train.py`
+- Added scheduler support for:
+- `reduce_on_plateau`
+- `increase_on_plateau`
+- `dynamic_on_plateau`
+- Tracks:
+- LR reductions
+- LR increases
+- scheduler switches
+- scheduler mode history
+
+### Valuation evaluation and statistical testing
+- Evaluation entrypoints:
 - `src/evaluation/evaluate_xgb_testsets.py`
-- `src/evaluation/evaluate_xgb_groupcv_testsets.py`
+- `src/evaluation/evaluate_valuation2_testsets.py`
 - `src/evaluation/evaluate_residual_testsets.py`
 - `src/evaluation/evaluate_final_testsets.py`
-- `src/evaluation/cross_validate_news_driven_mlp.py`
 
-- A dedicated XGB evaluator was created:
-- `src/evaluation/evaluate_xgb_testsets.py`
-- It retrains XGB separately for:
-- out-of-time test set
-- unseen-ticker test set
-- It avoids using the actual test set for early stopping by creating an internal train-only validation split.
-- It writes:
-- predictions CSVs for both test sets
-- `xgb_test_set_evaluation_summary.json`
+- Statistical testing entrypoint:
+- `src/evaluation/stat_tests/__main__.py`
+- Main implementations:
+- `src/evaluation/stat_tests/valuation.py`
+- `src/evaluation/stat_tests/risk.py`
+- It computes:
+- aligned prediction tables
+- headline metrics
+- paired bootstrap confidence intervals
+- pairwise bootstrap deltas
+- paired Wilcoxon and paired t-tests with correction
+- Mincer-Zarnowitz calibration
+- forecast-bias tests
+- size-bucket Kruskal / Dunn tables
+- Current saved artifacts:
+- `experiments/valuation/runs/stat_tests_validation_artifacts/`
+- `experiments/risk/runs/stat_tests_validation_artifacts/`
 
-- A separate GroupCV XGB training module was created:
-- `src/models/valuation/exp_xgb_groupcv_valuation.py`
-- It adds:
-- `GroupKFold` by ticker
-- optional ticker-frequency weighting
-- optional asset weighting
-- ratio-focused feature mode (`ratio_plus_news`)
-- CV result export
-
-- A separate GroupCV XGB test evaluator was created:
-- `src/evaluation/evaluate_xgb_groupcv_testsets.py`
-- It writes:
-- predictions for each test split
-- per-ticker error tables
-- feature shift tables using PSI and KS
-- model and CV artifacts for each split
-
-- The plain XGB evaluator smoke run completed successfully and produced:
-- `out_of_time rmse_log=0.057427`
-- `unseen_ticker rmse_log=0.608905`
-- Interpretation already established:
-- out-of-time performance is strong
-- unseen-ticker generalization is poor
-
-- The GroupCV evaluator also ran successfully from a tooling perspective, but model quality degraded substantially.
-
-## 4) How we have to fix it / pending
-- The current priority is valuation-model statistical testing, not the risk-model pipeline.
-- Treat `residual_mlp` as the main valuation pipeline.
-- Treat `xgb` as a comparison / benchmark model only.
-
-- Recommended statistical tests for the valuation dissertation workstream:
-- paired bootstrap confidence intervals for key metrics such as RMSE, RMSE-log, MAPE, non-zero MAPE, sMAPE, and R-squared on the out-of-time and unseen-ticker test sets
-- paired Wilcoxon signed-rank tests on per-observation error differences between models, using absolute error, absolute log error, and absolute percentage error as the main loss views
-- paired t-tests only as a secondary robustness check if the paired error-difference distribution looks approximately symmetric; do not rely on the t-test alone because valuation errors are likely skewed
-- Mincer-Zarnowitz style regression of `y_true` on `y_pred`, with joint testing of intercept = 0 and slope = 1, to assess calibration / forecast efficiency in a finance-friendly way
-- one-sample bias tests on signed residuals to test whether mean or median forecast error is statistically different from zero
-- Kruskal-Wallis tests across firm-size buckets on relative error measures, followed by a post-hoc procedure such as Dunn-Holm if the global test is significant
-- multiple-comparison correction, preferably Holm or Benjamini-Hochberg, when many pairwise tests or subgroup tests are reported
-
-- Tests that are likely beneficial for this use case:
-- use bootstrap confidence intervals as the main uncertainty quantification layer because they work well for non-normal error metrics
-- use Wilcoxon signed-rank as the main pairwise significance test between `residual_mlp`, `xgb`, and the baseline because predictions are paired at the same observation level
-- use Mincer-Zarnowitz regression because it is dissertation-friendly and interpretable in a valuation / forecasting context
-- use subgroup tests by firm-size bucket because valuation error behavior often varies strongly with scale
-
-- Tests that should be optional rather than central:
-- Diebold-Mariano can be considered for the out-of-time split if predictions are evaluated as a true ordered forecast sequence, but it is not the best primary test for the unseen-ticker split
-- normality tests on residuals should not be a core result because with large samples they are rarely informative for model comparison
-
-- Secondary valuation clean-up pending:
-- remove obsolete / experimental valuation files under `src/models/valuation/`
-- remove their paired evaluation / test scripts under `src/evaluation/`
-- keep the focus on the baseline valuation pipeline files rather than maintaining duplicate experimental paths in parallel
-
-- Risk-model work remains pending, but it should stay paused for now:
-- do not resume risk-model work until the user explicitly asks for it later
-
-## 5) Important constraints
-- Do not break the current module layout under:
-- `src/models/valuation/`
-- `src/evaluation/`
-
-- Keep valuation run outputs under:
-- `experiments/valuation/runs/`
-
-- Keep SHAP outputs under:
+### Valuation explainability
+- Existing valuation SHAP runner:
+- `src/explainability/shap_valuation.py`
+- It now explains:
+- `valuation2`
+- `xgb`
+- It no longer uses the residual valuation model by default.
+- Existing valuation plot generator:
+- `src/explainability/plot_shap_valuation.py`
+- Current saved valuation SHAP artifacts:
 - `experiments/valuation/SHAP/`
 
-- Preserve the current CLI pattern:
-- `python -m src.models.valuation.<module>`
-- `python -m src.evaluation.<module>`
+### Risk pipeline
+- Shared risk modeling utilities:
+- `src/models/risk/modeling.py`
+- Canonical current default data path resolution:
+- prefers `data/processed/risk/main_risk_dataset.csv`
+- otherwise falls back to `data/nprocessed/risk/risk_dataset.csv`
 
-- Do not silently move evaluation scripts back into `src/models/`.
+- XGB risk model:
+- `src/models/risk/xgb_risk.py`
+- Artifact directory:
+- `experiments/risk/runs/xgb_risk_artifacts/`
 
-- Avoid touching unrelated user changes in the worktree.
+- MLP risk model:
+- `src/models/risk/mlp_risk.py`
+- Artifact directory:
+- `experiments/risk/runs/mlp_risk_artifacts/`
 
-- Use separate runnable files for new experiments rather than rewriting the current baseline files in-place.
+- Risk dataset preparation:
+- `src/models/risk/prepare_datasets.py`
+- This builds processed split-specific risk datasets from valuation splits if needed.
+- Important note:
+- the user already has a legacy usable risk dataset at:
+- `data/nprocessed/risk/risk_dataset.csv`
+- The MLP and XGB risk trainers already work directly with that legacy path.
 
-- For the next workstream, the risk model should be added cleanly as a parallel pipeline, not by entangling it with the valuation scripts.
+- Risk evaluation:
+- `src/evaluation/evaluate_risk_testsets.py`
+- `src/evaluation/evaluate_risk_mlp_testsets.py`
 
-## 6) Key files to read first
-- [handoff.md](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/handoff.md)
-- [xgb_valuation.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/models/valuation/xgb_valuation.py)
-- [residual_mlp_valuation.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/models/valuation/residual_mlp_valuation.py)
-- [news_driven_mlp_valuation.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/models/valuation/news_driven_mlp_valuation.py)
-- [final_valuation.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/models/valuation/final_valuation.py)
-- [evaluate_xgb_testsets.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/evaluation/evaluate_xgb_testsets.py)
-- [evaluate_residual_testsets.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/evaluation/evaluate_residual_testsets.py)
-- [evaluate_final_testsets.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/evaluation/evaluate_final_testsets.py)
-- [metrics.py](/Users/burphh/Desktop/Dissertation/XAI-Investment_Banking/src/evaluation/metrics.py)
-
-- Clean-up instruction to remember:
-- remove experimental / duplicate files in `src/models/valuation/` and their corresponding evaluation / test files in `src/evaluation/` once the baseline pipeline is stabilized
-
-## 7) Commands to run
-- Main residual-MLP training run:
-```bash
-conda run -n diss python -m src.models.valuation.residual_mlp_valuation
-```
-
-- Main residual-MLP test evaluation:
-```bash
-conda run -n diss python -m src.evaluation.evaluate_residual_testsets \
-  --out-dir experiments/valuation/runs/residual_mlp_testset_evaluation
-```
-
-- XGB benchmark training run:
-```bash
-conda run -n diss python -m src.models.valuation.xgb_valuation
-```
-
-- XGB benchmark test evaluation:
-```bash
-conda run -n diss python -m src.evaluation.evaluate_xgb_testsets \
-  --out-dir experiments/valuation/runs/xgb_testset_evaluation
-```
-
-- Final valuation-model test evaluation:
-```bash
-conda run -n diss python -m src.evaluation.evaluate_final_testsets \
-  --out-dir experiments/valuation/runs/final_model_testset_evaluation
-```
-
-- For statistical testing, use the prediction CSVs and summary JSONs produced by the evaluation scripts above as the input tables.
-
-## 8) Known errors / logs
-- The main pipeline is now `residual_mlp`, and current validation performance is strong:
-- `val_rmse_log=0.067394 | val_r2_raw=0.978031 | val_mape_raw=0.013648`
-
-- XGB remains useful as a benchmark / comparison model only:
-- its SHAP output is valid for comparison, but it is not the main interpretation target
-
-- Current gap:
-- the codebase reports descriptive evaluation metrics, but it does not yet provide dissertation-ready statistical significance tests or confidence intervals for model comparison
-- the next workstream should fill that gap using the saved per-observation prediction outputs
-
-## 9) Next exact step
-1. Keep the workstream on valuation-model statistical testing first.
-2. Generate or refresh the prediction tables for:
-- `residual_mlp`
+- Train script:
+- `src/scripts/train_risk.py`
+- Dispatches between:
 - `xgb`
-- the final valuation model if needed
-- both out-of-time and unseen-ticker test sets
-3. Build aligned paired comparison tables at the observation level so each model is compared on the same rows.
-4. Implement and report the following dissertation-facing tests:
-- paired bootstrap confidence intervals for headline metrics
-- paired Wilcoxon signed-rank tests for model-vs-model error differences
-- Mincer-Zarnowitz regression with joint coefficient tests
-- bias tests on signed residuals
-- firm-size bucket robustness tests with post-hoc correction if needed
-5. Save final statistical outputs as clean tables that can be moved into the dissertation results chapter.
-6. After that, clean up the valuation module scope:
-- keep `xgb_valuation.py`, `residual_mlp_valuation.py`, and `news_driven_mlp_valuation.py` as the core valuation files
-- remove obsolete experimental files in `src/models/valuation/`
-- remove matching evaluation / test files in `src/evaluation/`
-7. Do not move on to risk-model work automatically.
-   Only when the user explicitly asks later should the workstream move on to the risk model.
+- `mlp`
+
+### Risk explainability
+- Risk SHAP runner:
+- `src/explainability/shap_risk.py`
+- Risk SHAP plot generator:
+- `src/explainability/plot_shap_risk.py`
+- Current saved risk SHAP artifacts:
+- `experiments/risk/SHAP/`
+- Includes:
+- per-model SHAP summaries
+- beeswarm plots
+- importance bars
+- dependence plots
+- local explanation plots
+- comparison plots at the root `plots/` level
+
+## 4) Key current datasets
+- Legacy valuation base dataset:
+- `data/processed/main_dataset.csv`
+
+- Expanded valuation-feature dataset:
+- `data/processed/main_dataset_expanded_fundamentals.csv`
+
+- Current valuation-ready dataset:
+- `data/processed/valuation/main_dataset_valuation_ready.csv`
+
+- Current legacy risk dataset used in practice:
+- `data/nprocessed/risk/risk_dataset.csv`
+
+## 5) Current important artifact directories
+- Valuation baseline artifacts:
+- `experiments/valuation/runs/valuation_artifacts/`
+
+- Real-valuation MLP artifacts:
+- `experiments/valuation/runs/final_valuation_artifacts/`
+
+- Scheduler experiment artifacts:
+- `experiments/valuation/runs/valuation2_artifacts/`
+- `experiments/valuation/runs/valuation2_increase_artifacts/`
+- `experiments/valuation/runs/valuation2_dynamic_reduce_artifacts/`
+- `experiments/valuation/runs/valuation2_evaluation_artifacts/`
+
+- Anchor residual ablation:
+- `experiments/valuation/runs/anchor_residual_valuation_artifacts/`
+
+- XGB held-out evaluation:
+- `experiments/valuation/runs/xgb_evaluation_artifacts/`
+
+- Valuation statistical tests:
+- `experiments/valuation/runs/stat_tests_validation_artifacts/`
+
+- Valuation SHAP:
+- `experiments/valuation/SHAP/`
+
+- Risk XGB:
+- `experiments/risk/runs/xgb_risk_artifacts/`
+
+- Risk MLP:
+- `experiments/risk/runs/mlp_risk_artifacts/`
+
+- Risk SHAP:
+- `experiments/risk/SHAP/`
+- Risk statistical tests:
+- `experiments/risk/runs/stat_tests_validation_artifacts/`
+
+## 6) Current model interpretation
+- `valuation.py` is still a simple accounting-size baseline on `total_assets`.
+- `final_valuation.py` is the main real-valuation pipeline and should be treated as the current valuation model of record.
+- `xgb_valuation.py` remains useful as a benchmark, but its saved metrics are on a different target unless explicitly retrained on the valuation-ready dataset.
+- Risk is a continuous regression task on `drawdown_severity`, not a classification task by default.
+
+## 7) Known caveats
+- The saved `xgb_valuation` benchmark is on `total_assets`, so direct metric comparison against current `final_valuation.py` is not apples-to-apples.
+- The valuation `stat_tests` module was built against saved valuation prediction artifacts and baseline conventions from the older valuation stack. If it is used for the newer real-valuation models, verify column compatibility first.
+- The risk `stat_tests` module now compares aligned validation predictions from `mlp_risk_artifacts` and `xgb_risk_artifacts`, and includes the saved `y_pred_baseline` as the current-drawdown baseline by default.
+- Full split-specific processed risk datasets are optional and can be generated, but most current risk work has been run successfully from `data/nprocessed/risk/risk_dataset.csv`.
+- Risk ROC-AUC / F1 style evaluation has not yet been added. It is valid only after defining binary event labels from the continuous drawdown target.
+
+## 8) Commands to run
+
+### Build valuation-ready data
+```bash
+python -m src.data_fetch.fundamental.expand_main_dataset_fundamentals
+python -m src.data_fetch.market.build_valuation_target_dataset
+```
+
+### Train valuation models
+```bash
+python -m src.models.valuation.valuation
+python -m src.models.valuation.valuation2
+python -m src.models.valuation.anchor_residual_valuation
+python -m src.models.valuation.final_valuation
+```
+
+### Run valuation held-out evaluation
+```bash
+/opt/miniconda3/envs/diss/bin/python -m src.evaluation.evaluate_xgb_testsets
+/opt/miniconda3/envs/diss/bin/python -m src.evaluation.evaluate_valuation2_testsets
+```
+
+### Run valuation statistics / explainability
+```bash
+python -m src.evaluation.stat_tests
+python -m src.evaluation.stat_tests valuation
+python -m src.evaluation.stat_tests risk
+python -m src.explainability.shap_valuation
+python -m src.explainability.plot_shap_valuation
+```
+
+### Train risk models
+```bash
+python -m src.models.risk.xgb_risk --data data/nprocessed/risk/risk_dataset.csv
+python -m src.models.risk.mlp_risk --data data/nprocessed/risk/risk_dataset.csv
+python src/scripts/train_risk.py --model mlp --data data/nprocessed/risk/risk_dataset.csv
+```
+
+### Run risk explainability
+```bash
+python -m src.evaluation.stat_tests.risk
+python -m src.explainability.shap_risk --out-dir experiments/risk/SHAP
+python -m src.explainability.plot_shap_risk --shap-dir experiments/risk/SHAP
+```
+
+## 9) Key files to read first
+- `src/models/valuation/final_valuation.py`
+- `src/data_fetch/fundamental/expand_main_dataset_fundamentals.py`
+- `src/data_fetch/market/build_valuation_target_dataset.py`
+- `src/evaluation/stat_tests/valuation.py`
+- `src/evaluation/stat_tests/risk.py`
+- `src/models/risk/modeling.py`
+- `src/models/risk/mlp_risk.py`
+- `src/models/risk/xgb_risk.py`
+- `src/explainability/shap_risk.py`
+- `src/explainability/plot_shap_risk.py`
+
+## 10) Recommended next-step orientation
+- If continuing valuation work:
+- treat `final_valuation.py` as the main model
+- treat `valuation.py` and `xgb_valuation.py` as older baselines / benchmarks
+- be careful not to compare `total_assets` metrics directly with `market_cap_target` metrics
+
+- If continuing risk work:
+- keep using `data/nprocessed/risk/risk_dataset.csv` unless split-specific processed datasets are explicitly needed
+- SHAP and plots are already implemented for both risk MLP and risk XGB
+- classification metrics such as ROC-AUC or F1 should only be added after explicitly thresholding the continuous drawdown target

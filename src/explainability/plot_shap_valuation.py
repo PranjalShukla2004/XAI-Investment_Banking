@@ -20,7 +20,7 @@ class PlotSHAPConfig:
 
 
 def _ordered_model_names(payloads: Dict[str, Dict[str, Any]]) -> List[str]:
-    preferred = ["residual_mlp", "xgb"]
+    preferred = ["valuation2", "xgb"]
     names = list(payloads.keys())
     ordered: List[str] = [name for name in preferred if name in names]
     ordered.extend(name for name in names if name not in ordered)
@@ -87,13 +87,20 @@ def _attribution_scale(model_summary: Dict[str, Any]) -> str | None:
     return _shap_summary(model_summary).get("attribution_scale")
 
 
+def _target_label(model_summary: Dict[str, Any]) -> str:
+    model_details = model_summary.get("model_details", {})
+    config = model_details.get("config", {})
+    target_col = config.get("target_col")
+    if target_col:
+        return str(target_col)
+    return "target"
+
+
 def _explanation_label(model_summary: Dict[str, Any]) -> str:
     view = _explanation_view(model_summary)
     scale = _attribution_scale(model_summary)
     parts: List[str] = []
-    if view == "residual_only":
-        parts.append("residual-only")
-    elif view == "full_prediction":
+    if view == "full_prediction":
         parts.append("full prediction")
     elif view:
         parts.append(str(view).replace("_", " "))
@@ -121,22 +128,18 @@ def _has_required_shap_artifacts(model_summary: Dict[str, Any]) -> bool:
     return True
 
 
-def _has_required_residual_only_artifacts(model_summary: Dict[str, Any]) -> bool:
-    return _has_required_shap_artifacts(model_summary) and _explanation_view(model_summary) == "residual_only"
-
-
-def _materialize_residual_mlp_shap_if_missing(
+def _materialize_valuation2_shap_if_missing(
     shap_dir: Path,
     summary: Dict[str, Any],
 ) -> Dict[str, Any]:
-    residual_summary = summary.get("models", {}).get("residual_mlp")
-    if not residual_summary:
+    valuation2_summary = summary.get("models", {}).get("valuation2")
+    if not valuation2_summary:
         return {
             "attempted": False,
             "status": "not_applicable",
-            "reason": "residual_mlp_not_present",
+            "reason": "valuation2_not_present",
         }
-    if _has_required_residual_only_artifacts(residual_summary):
+    if _has_required_shap_artifacts(valuation2_summary):
         return {
             "attempted": False,
             "status": "already_available",
@@ -145,7 +148,7 @@ def _materialize_residual_mlp_shap_if_missing(
     try:
         from src.explainability.shap_valuation import (
             ValuationSHAPConfig as SHAPRunConfig,
-            _explain_residual_mlp_model,
+            _explain_valuation2_model,
             shap as shap_lib,
         )
     except Exception as exc:
@@ -167,18 +170,18 @@ def _materialize_residual_mlp_shap_if_missing(
         data_path=Path(root_cfg.get("data_path", "data/processed/main_dataset.csv")),
         out_dir=shap_dir,
         random_seed=int(root_cfg.get("random_seed", 42)),
-        models=("residual_mlp",),
+        models=("valuation2",),
         max_display=int(root_cfg.get("max_display", 15)),
         top_error_rows=int(root_cfg.get("top_error_rows", 50)),
         top_k_local_features=int(root_cfg.get("top_k_local_features", 5)),
         save_plots=bool(root_cfg.get("save_plots", True)),
-        residual_background_size=int(root_cfg.get("residual_background_size", 64)),
-        residual_explain_rows=int(root_cfg.get("residual_explain_rows", 128)),
-        residual_kernel_nsamples=int(root_cfg.get("residual_kernel_nsamples", 128)),
+        mlp_background_size=int(root_cfg.get("mlp_background_size", root_cfg.get("residual_background_size", 64))),
+        mlp_explain_rows=int(root_cfg.get("mlp_explain_rows", root_cfg.get("residual_explain_rows", 128))),
+        mlp_kernel_nsamples=int(root_cfg.get("mlp_kernel_nsamples", root_cfg.get("residual_kernel_nsamples", 128))),
     )
 
     try:
-        updated_model_summary = _explain_residual_mlp_model(run_cfg)
+        updated_model_summary = _explain_valuation2_model(run_cfg)
     except Exception as exc:
         return {
             "attempted": True,
@@ -186,7 +189,7 @@ def _materialize_residual_mlp_shap_if_missing(
             "reason": f"materialization_failed: {exc}",
         }
 
-    summary.setdefault("models", {})["residual_mlp"] = updated_model_summary
+    summary.setdefault("models", {})["valuation2"] = updated_model_summary
     summary.setdefault("library_versions", {})["shap"] = getattr(shap_lib, "__version__", None)
     summary_path = shap_dir / "valuation_shap_summary.json"
     summary_path.write_text(
@@ -273,7 +276,7 @@ def _plot_metric_comparison(
         ax.set_title(titles[metric])
         ax.grid(axis="y", alpha=0.2)
 
-    fig.suptitle("Primary Residual MLP vs XGBoost Benchmark", fontsize=14)
+    fig.suptitle("Valuation2 MLP vs XGBoost Benchmark", fontsize=14)
     _save_figure(fig, out_path, dpi)
     plt.close(fig)
     return out_path
@@ -374,7 +377,7 @@ def _plot_feature_importance_comparison(
         ax.set_title("Top SHAP Feature Importance by Model (normalized for different attribution scales)")
     else:
         ax.set_ylabel("Mean |SHAP value|")
-        ax.set_title("Top SHAP Feature Importance: Residual MLP vs XGBoost")
+        ax.set_title("Top SHAP Feature Importance: Valuation2 MLP vs XGBoost")
     ax.grid(axis="y", alpha=0.2)
     ax.legend()
     _save_figure(fig, out_path, dpi)
@@ -385,6 +388,7 @@ def _plot_feature_importance_comparison(
 def _plot_actual_vs_pred(
     preds: pd.DataFrame,
     model_name: str,
+    model_summary: Dict[str, Any],
     out_path: Path,
     dpi: int,
 ) -> Path | None:
@@ -399,8 +403,9 @@ def _plot_actual_vs_pred(
     lo = float(min(np.nanmin(y_true), np.nanmin(y_pred)))
     hi = float(max(np.nanmax(y_true), np.nanmax(y_pred)))
     ax.plot([lo, hi], [lo, hi], linestyle="--", color="#444444", linewidth=1.25)
-    ax.set_xlabel("True total_assets")
-    ax.set_ylabel("Predicted total_assets")
+    target_label = _target_label(model_summary)
+    ax.set_xlabel(f"True {target_label}")
+    ax.set_ylabel(f"Predicted {target_label}")
     ax.set_title(f"{model_name}: Validation Actual vs Predicted")
     ax.grid(alpha=0.2)
     _save_figure(fig, out_path, dpi)
@@ -439,6 +444,7 @@ def _plot_relative_error_hist(
 def _plot_error_vs_target(
     preds: pd.DataFrame,
     model_name: str,
+    model_summary: Dict[str, Any],
     out_path: Path,
     dpi: int,
 ) -> Path | None:
@@ -450,7 +456,7 @@ def _plot_error_vs_target(
     y_true = pd.to_numeric(preds["y_true"], errors="coerce").to_numpy(dtype=np.float64)
     rel = pd.to_numeric(preds["rel_error_raw"], errors="coerce").to_numpy(dtype=np.float64)
     ax.scatter(y_true, rel, alpha=0.3, s=14, color="#2a9d8f", edgecolors="none")
-    ax.set_xlabel("True total_assets")
+    ax.set_xlabel(f"True {_target_label(model_summary)}")
     ax.set_ylabel("Relative error")
     ax.set_title(f"{model_name}: Relative Error vs True Target")
     ax.grid(alpha=0.2)
@@ -637,6 +643,7 @@ def _plot_model_bundle(
     plot_path = _plot_actual_vs_pred(
         preds,
         model_name,
+        model_summary,
         plots_dir / "validation_actual_vs_pred.png",
         cfg.dpi,
     )
@@ -655,6 +662,7 @@ def _plot_model_bundle(
     plot_path = _plot_error_vs_target(
         preds,
         model_name,
+        model_summary,
         plots_dir / "validation_error_vs_target.png",
         cfg.dpi,
     )
@@ -723,7 +731,7 @@ def main() -> None:
         raise SystemExit(f"SHAP summary not found: {summary_path}")
 
     summary = _read_json(summary_path)
-    materialization = _materialize_residual_mlp_shap_if_missing(cfg.shap_dir, summary)
+    materialization = _materialize_valuation2_shap_if_missing(cfg.shap_dir, summary)
     if materialization.get("status") == "ok":
         summary = _read_json(summary_path)
     payloads = _load_model_payloads(cfg.shap_dir, summary)

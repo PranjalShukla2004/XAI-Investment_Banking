@@ -1,0 +1,28 @@
+{
+  "split": "val",
+  "bootstrap_iterations": 2000,
+  "seed": 42,
+  "size_buckets": 5,
+  "key_columns": [
+    "ticker",
+    "fiscal_year",
+    "period_end",
+    "timeframe"
+  ],
+  "loaded_sources": {
+    "xgb": {
+      "path": "experiments/valuation/runs/xgb_valuation_artifacts/predictions.csv",
+      "rows_after_split_filter": 1730
+    },
+    "valuation2": {
+      "path": "experiments/valuation/runs/residual_mlp_valuation_artifacts/predictions.csv",
+      "rows_after_split_filter": 1730
+    }
+  },
+  "comparison_models": [
+    "xgb",
+    "valuation2"
+  ],
+  "include_baseline": false,
+  "aligned_rows": 1730
+}

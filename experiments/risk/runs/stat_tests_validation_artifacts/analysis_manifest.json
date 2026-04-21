@@ -1,0 +1,28 @@
+{
+  "split": "val",
+  "bootstrap_iterations": 2000,
+  "seed": 42,
+  "severity_buckets": 5,
+  "key_columns": [
+    "ticker",
+    "fiscal_year",
+    "period_end",
+    "timeframe"
+  ],
+  "loaded_sources": {
+    "mlp": {
+      "path": "experiments/risk/runs/mlp_risk_artifacts/predictions.csv",
+      "rows_after_split_filter": 5086
+    },
+    "xgb": {
+      "path": "experiments/risk/runs/xgb_risk_artifacts/predictions.csv",
+      "rows_after_split_filter": 5086
+    }
+  },
+  "comparison_models": [
+    "mlp",
+    "xgb",
+    "current_drawdown_baseline"
+  ],
+  "aligned_rows": 5086
+}

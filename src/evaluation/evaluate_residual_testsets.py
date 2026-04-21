@@ -29,7 +29,8 @@ from src.models.valuation.valuation import (
 
 
 def _normalize_tickers(series: pd.Series) -> pd.Series:
-    return series.astype(str).str.upper().str.strip()
+    out = series.astype(str).str.upper().str.strip()
+    return out.replace({"": pd.NA, "NAN": pd.NA, "NONE": pd.NA, "<NA>": pd.NA, "NULL": pd.NA})
 
 
 def _mape_nonzero(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -288,7 +289,7 @@ def main() -> None:
     res_oot["predictions"].to_csv(oot_preds_path, index=False)
 
     # Unseen tickers: train on non-heldout tickers.
-    unseen_tickers = set(_normalize_tickers(unseen_df["ticker"]))
+    unseen_tickers = set(_normalize_tickers(unseen_df["ticker"]).dropna())
     train_unseen = main_df[~_normalize_tickers(main_df["ticker"]).isin(unseen_tickers)].copy()
     res_unseen = _train_and_eval_residual(train_unseen, unseen_df, cfg)
     unseen_preds_path = out_dir / "test_unseen_tickers_predictions.csv"

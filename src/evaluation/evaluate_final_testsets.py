@@ -13,9 +13,14 @@ from src.models.nn.losses import HuberLoss
 from src.models.nn.mlp import MLP
 from src.models.nn.optimizer import Adam
 from src.models.nn.train import TrainConfig, fit
-from src.models.valuation.final_valuation import FinalValuationConfig
-from src.models.valuation.news_driven_mlp_valuation import _build_identity_base_feature, _build_news_features
-from src.models.valuation.production_safe_inference import mape_nonzero, smape, tail_risk_rates
+from src.models.valuation.final_valuation import (
+    FinalValuationConfig,
+    _build_identity_base_feature,
+    _build_news_features,
+    _mape_nonzero,
+    _smape,
+    _tail_risk_rates,
+)
 from src.models.valuation.valuation import (
     _ensure_dir,
     _fit_standard_scaler,
@@ -31,7 +36,8 @@ from src.models.valuation.valuation import (
 
 
 def _normalize_tickers(series: pd.Series) -> pd.Series:
-    return series.astype(str).str.upper().str.strip()
+    out = series.astype(str).str.upper().str.strip()
+    return out.replace({"": pd.NA, "NAN": pd.NA, "NONE": pd.NA, "<NA>": pd.NA, "NULL": pd.NA})
 
 
 def _prepare_with_news(df: pd.DataFrame, cfg: FinalValuationConfig) -> tuple[pd.DataFrame, Dict[str, object]]:
@@ -61,22 +67,25 @@ def _inner_train_val_indices(
     n_val_target = max(1, int(round(eligible_idx.size * float(val_ratio))))
     if "ticker" in train_df.columns:
         ticker_sub = _normalize_tickers(train_df.iloc[eligible_idx]["ticker"])
-        unique_tickers = ticker_sub.unique()
+        valid_mask_sub = ticker_sub.notna().to_numpy()
+        valid_tickers = ticker_sub.loc[ticker_sub.notna()]
+        unique_tickers = valid_tickers.unique()
         if unique_tickers.size > 1:
             rng = np.random.default_rng(seed)
             tickers_shuffled = np.array(unique_tickers, dtype=object)
             rng.shuffle(tickers_shuffled)
-            ticker_counts = ticker_sub.value_counts().to_dict()
+            ticker_counts = valid_tickers.value_counts().to_dict()
 
             chosen_tickers: List[str] = []
             rows_accum = 0
             for t in tickers_shuffled:
-                chosen_tickers.append(str(t))
-                rows_accum += int(ticker_counts[str(t)])
+                ts = str(t)
+                chosen_tickers.append(ts)
+                rows_accum += int(ticker_counts.get(ts, 0))
                 if rows_accum >= n_val_target and len(chosen_tickers) < unique_tickers.size:
                     break
 
-            val_mask_sub = ticker_sub.isin(chosen_tickers).to_numpy()
+            val_mask_sub = valid_mask_sub & ticker_sub.isin(chosen_tickers).to_numpy()
             if np.any(val_mask_sub) and np.any(~val_mask_sub):
                 val_idx = eligible_idx[val_mask_sub]
                 fit_idx = eligible_idx[~val_mask_sub]
@@ -280,16 +289,16 @@ def _train_and_eval_final(
         "rmse_raw": float(_rmse(y_test_raw, yhat_test_raw)),
         "r2_raw": float(_r2(y_test_raw, yhat_test_raw)),
         "mape_raw": float(_mape(y_test_raw, yhat_test_raw)),
-        "mape_nonzero_raw": float(mape_nonzero(y_test_raw, yhat_test_raw)),
-        "smape_raw": float(smape(y_test_raw, yhat_test_raw)),
+        "mape_nonzero_raw": float(_mape_nonzero(y_test_raw, yhat_test_raw)),
+        "smape_raw": float(_smape(y_test_raw, yhat_test_raw)),
         "baseline_rmse_log": float(_rmse(y_test, base_test_target_scale)),
         "baseline_r2_log": float(_r2(y_test, base_test_target_scale)),
         "baseline_rmse_raw": float(_rmse(y_test_raw, yhat_base_test_raw)),
         "baseline_r2_raw": float(_r2(y_test_raw, yhat_base_test_raw)),
         "baseline_mape_raw": float(_mape(y_test_raw, yhat_base_test_raw)),
-        "baseline_mape_nonzero_raw": float(mape_nonzero(y_test_raw, yhat_base_test_raw)),
-        "baseline_smape_raw": float(smape(y_test_raw, yhat_base_test_raw)),
-        "tail_risk": tail_risk_rates(y_test_raw, yhat_test_raw),
+        "baseline_mape_nonzero_raw": float(_mape_nonzero(y_test_raw, yhat_base_test_raw)),
+        "baseline_smape_raw": float(_smape(y_test_raw, yhat_base_test_raw)),
+        "tail_risk": _tail_risk_rates(y_test_raw, yhat_test_raw),
         "best_epoch_inner": history.get("best_epoch"),
         "best_val_loss_inner": history.get("best_val_loss"),
         "stopped_early_inner": history.get("stopped_early"),
@@ -348,7 +357,7 @@ def main() -> None:
     oot_preds_path = out_dir / "final_test_out_of_time_predictions.csv"
     res_oot["predictions"].to_csv(oot_preds_path, index=False)
 
-    unseen_tickers = set(_normalize_tickers(unseen_prepped["ticker"]))
+    unseen_tickers = set(_normalize_tickers(unseen_prepped["ticker"]).dropna())
     train_unseen = main_prepped[~_normalize_tickers(main_prepped["ticker"]).isin(unseen_tickers)].copy()
     res_unseen = _train_and_eval_final(train_unseen, unseen_prepped, cfg)
     unseen_preds_path = out_dir / "final_test_unseen_tickers_predictions.csv"

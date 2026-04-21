@@ -15,29 +15,25 @@ try:
 except ImportError:  # pragma: no cover - optional dependency
     shap = None
 
-from src.models.feature_engineering import fit_pca, select_features_by_correlation, transform_pca
 from src.models.nn.losses import HuberLoss
 from src.models.nn.mlp import MLP
 from src.models.nn.optimizer import Adam
 from src.models.nn.train import TrainConfig, fit
-from src.models.valuation.residual_mlp_valuation import (
-    ResidualMLPValuationConfig,
-    _build_identity_base_feature,
-)
 from src.models.valuation.valuation import (
     _ensure_dir,
     _fit_standard_scaler,
-    _make_asset_weights_from_log_target as _make_residual_asset_weights,
+    _make_asset_weights_from_log_target,
     _mape,
     _r2,
     _rmse,
-    _select_feature_columns as _select_residual_feature_columns,
+    _select_feature_columns,
     _select_log1p_features,
-    _time_aware_split as _residual_time_aware_split,
+    _time_aware_split,
     _to_jsonable,
     _transform_standard_scaler,
-    build_xy as build_residual_xy,
+    build_xy,
 )
+from src.models.valuation.valuation2 import Valuation2Config
 from src.models.valuation.xgb_valuation import (
     XGBValuationConfig,
     _make_asset_weights_from_log_target as _make_xgb_asset_weights,
@@ -45,8 +41,8 @@ from src.models.valuation.xgb_valuation import (
     build_xy as build_xgb_xy,
 )
 
-RESIDUAL_ONLY_ATTRIBUTION_SCALE = "learned_residual_on_log1p(total_assets)_scale"
-VALID_MODELS = ("residual_mlp", "xgb")
+DIRECT_MLP_ATTRIBUTION_SCALE = "log1p(total_assets)"
+VALID_MODELS = ("valuation2", "xgb")
 
 
 @dataclass
@@ -59,9 +55,9 @@ class ValuationSHAPConfig:
     top_error_rows: int = 50
     top_k_local_features: int = 5
     save_plots: bool = True
-    residual_background_size: int = 64
-    residual_explain_rows: int = 128
-    residual_kernel_nsamples: int = 128
+    mlp_background_size: int = 64
+    mlp_explain_rows: int = 128
+    mlp_kernel_nsamples: int = 128
 
 
 def _import_pyplot():
@@ -156,6 +152,11 @@ def _build_local_explanations_table(
 
     rows: List[Dict[str, Any]] = []
     for rank, row_idx in enumerate(ordered_idx, start=1):
+        baseline_value = (
+            float(predictions.iloc[row_idx]["y_pred_baseline"])
+            if "y_pred_baseline" in predictions.columns
+            else float("nan")
+        )
         row = {
             "rank_by_abs_error_log": int(rank),
             "base_value_log": float(base_values[row_idx]),
@@ -164,7 +165,7 @@ def _build_local_explanations_table(
             "y_pred_log": float(predictions.iloc[row_idx]["y_pred_log"]),
             "y_true": float(predictions.iloc[row_idx]["y_true"]),
             "y_pred": float(predictions.iloc[row_idx]["y_pred"]),
-            "y_pred_baseline": float(predictions.iloc[row_idx]["y_pred_baseline"]),
+            "y_pred_baseline": baseline_value,
             "abs_error_log": float(predictions.iloc[row_idx]["abs_error_log"]),
             "abs_error_raw": float(predictions.iloc[row_idx]["abs_error_raw"]),
             "rel_error_raw": float(predictions.iloc[row_idx]["rel_error_raw"]),
@@ -571,17 +572,11 @@ def _explain_xgb_model(
     )
 
 
-def _train_residual_mlp_baseline(
-    cfg: ResidualMLPValuationConfig,
+def _train_valuation2_mlp(
+    cfg: Valuation2Config,
 ) -> Dict[str, Any]:
-    raw_df = pd.read_csv(cfg.data_path)
-    df = _build_identity_base_feature(
-        raw_df,
-        liabilities_col=cfg.liabilities_col,
-        equity_col=cfg.equity_col,
-        out_col=cfg.base_feature_col,
-    )
-    train_df, val_df = _residual_time_aware_split(
+    df = pd.read_csv(cfg.data_path)
+    train_df, val_df = _time_aware_split(
         df=df,
         time_col=cfg.time_col,
         min_val_rows=cfg.min_val_rows,
@@ -589,100 +584,36 @@ def _train_residual_mlp_baseline(
         val_ratio_fallback=cfg.val_ratio_fallback,
     )
 
-    raw_feature_names = _select_residual_feature_columns(train_df, cfg.target_col)
-    if cfg.enable_feature_selection:
-        feature_names, feature_selection_stats = select_features_by_correlation(
-            train_df=train_df,
-            feature_cols=raw_feature_names,
-            target_col=cfg.target_col,
-            log_target=cfg.log_target,
-            min_abs_target_corr=float(cfg.min_abs_target_corr),
-            max_features=cfg.max_features_by_target_corr,
-            max_inter_feature_corr=float(cfg.max_inter_feature_corr),
-            min_features=int(cfg.min_features_after_selection),
-        )
-    else:
-        feature_names = list(raw_feature_names)
-        feature_selection_stats = {
-            "selection_applied": False,
-            "raw_feature_count": int(len(raw_feature_names)),
-            "selected_feature_count": int(len(feature_names)),
-        }
-
+    feature_names = _select_feature_columns(train_df, cfg.target_col)
     log1p_feature_names = _select_log1p_features(
         train_df=train_df,
         feature_cols=feature_names,
         enabled=cfg.use_log1p_feature_transform,
     )
 
-    X_train, y_train, feature_names = build_residual_xy(
+    X_train, y_train, feature_names = build_xy(
         train_df,
-        cfg,  # type: ignore[arg-type]
+        cfg,
         feature_cols=feature_names,
         log1p_features=log1p_feature_names,
     )
-    X_val, y_val, _ = build_residual_xy(
+    X_val, y_val, _ = build_xy(
         val_df,
-        cfg,  # type: ignore[arg-type]
+        cfg,
         feature_cols=feature_names,
         log1p_features=log1p_feature_names,
     )
-
-    base_train_raw = np.clip(
-        pd.to_numeric(train_df[cfg.base_feature_col], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32),
-        a_min=0.0,
-        a_max=None,
-    )
-    base_val_raw = np.clip(
-        pd.to_numeric(val_df[cfg.base_feature_col], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32),
-        a_min=0.0,
-        a_max=None,
-    )
-    if cfg.log_target:
-        base_train_target_scale = np.log1p(base_train_raw).reshape(-1, 1)
-        base_val_target_scale = np.log1p(base_val_raw).reshape(-1, 1)
-    else:
-        base_train_target_scale = base_train_raw.reshape(-1, 1)
-        base_val_target_scale = base_val_raw.reshape(-1, 1)
-
-    y_train_residual = y_train - base_train_target_scale
 
     x_scaler = _fit_standard_scaler(X_train)
     X_train_s = _transform_standard_scaler(X_train, x_scaler)
     X_val_s = _transform_standard_scaler(X_val, x_scaler)
 
-    pca_model = None
-    if cfg.enable_pca:
-        pca_model = fit_pca(
-            X_train_s,
-            explained_variance=float(cfg.pca_explained_variance),
-            max_components=cfg.pca_max_components,
-        )
-        X_train_model = transform_pca(X_train_s, pca_model)
-        X_val_model = transform_pca(X_val_s, pca_model)
-        pca_stats = {
-            "enabled": True,
-            "n_features_in": int(pca_model["n_features_in"]),
-            "n_components": int(pca_model["n_components"]),
-            "explained_variance_ratio_cum": float(pca_model["explained_variance_ratio_cum"]),
-        }
-    else:
-        X_train_model = X_train_s
-        X_val_model = X_val_s
-        pca_stats = {
-            "enabled": False,
-            "n_features_in": int(X_train_s.shape[1]),
-            "n_components": int(X_train_s.shape[1]),
-            "explained_variance_ratio_cum": 1.0,
-        }
-
-    y_res_scaler = _fit_standard_scaler(y_train_residual)
-    y_train_res_s = _transform_standard_scaler(y_train_residual, y_res_scaler)
-    y_val_residual = y_val - base_val_target_scale
-    y_val_res_s = _transform_standard_scaler(y_val_residual, y_res_scaler)
+    y_scaler = _fit_standard_scaler(y_train)
+    y_train_s = _transform_standard_scaler(y_train, y_scaler)
+    y_val_s = _transform_standard_scaler(y_val, y_scaler)
 
     model = MLP.from_dims(
-        input_dim=int(X_train_model.shape[1]),
+        input_dim=int(X_train_s.shape[1]),
         hidden_dims=cfg.hidden_dims,
         output_dim=1,
         activation=cfg.activation.lower(),
@@ -705,20 +636,24 @@ def _train_residual_mlp_baseline(
         restore_best=cfg.restore_best,
         lr_scheduler=cfg.lr_scheduler,
         lr_factor=cfg.lr_factor,
+        lr_increase_factor=cfg.lr_increase_factor,
         lr_patience=cfg.lr_patience,
         lr_min=cfg.lr_min,
+        lr_max=cfg.lr_max,
         lr_threshold=cfg.lr_threshold,
         lr_cooldown=cfg.lr_cooldown,
+        dynamic_lr_start_mode=cfg.dynamic_lr_start_mode,
+        dynamic_lr_switch_patience=cfg.dynamic_lr_switch_patience,
     )
-    w_train = _make_residual_asset_weights(y_train, power=0.25, w_min=0.5, w_max=2.0)
+    w_train = _make_asset_weights_from_log_target(y_train, power=0.25, w_min=0.5, w_max=2.0)
     history = fit(
         model=model,
         criterion=loss_fn,
         optimizer=opt,
-        X_train=X_train_model,
-        y_train=y_train_res_s,
-        X_val=X_val_model,
-        y_val=y_val_res_s,
+        X_train=X_train_s,
+        y_train=y_train_s,
+        X_val=X_val_s,
+        y_val=y_val_s,
         cfg=train_cfg,
         metric_fn=None,
         w_train=w_train,
@@ -726,88 +661,78 @@ def _train_residual_mlp_baseline(
     )
 
     model.eval()
-    yhat_train_res_s = model.forward(X_train_model, training=False)
-    yhat_val_res_s = model.forward(X_val_model, training=False)
-    yhat_train_residual = yhat_train_res_s * y_res_scaler["sigma"] + y_res_scaler["mu"]
-    yhat_val_residual = yhat_val_res_s * y_res_scaler["sigma"] + y_res_scaler["mu"]
-    yhat_train_target_scale_preclip = base_train_target_scale + yhat_train_residual
-    yhat_val_target_scale_preclip = base_val_target_scale + yhat_val_residual
+    yhat_train_s = model.forward(X_train_s, training=False)
+    yhat_val_s = model.forward(X_val_s, training=False)
+    yhat_train_model_preclip = yhat_train_s * y_scaler["sigma"] + y_scaler["mu"]
+    yhat_val_model_preclip = yhat_val_s * y_scaler["sigma"] + y_scaler["mu"]
 
     if cfg.use_quantile_clip:
         clip_lo = float(np.quantile(y_train, cfg.clip_q_lo))
         clip_hi = float(np.quantile(y_train, cfg.clip_q_hi))
     else:
-        train_min = float(np.min(y_train))
-        train_max = float(np.max(y_train))
-        clip_lo = train_min - float(cfg.clip_margin)
-        clip_hi = train_max + float(cfg.clip_margin)
+        clip_lo = float(np.min(y_train)) - float(cfg.clip_margin)
+        clip_hi = float(np.max(y_train)) + float(cfg.clip_margin)
 
-    yhat_train_target_scale = np.clip(yhat_train_target_scale_preclip, clip_lo, clip_hi)
-    yhat_val_target_scale = np.clip(yhat_val_target_scale_preclip, clip_lo, clip_hi)
+    yhat_train_model = np.clip(yhat_train_model_preclip, clip_lo, clip_hi)
+    yhat_val_model = np.clip(yhat_val_model_preclip, clip_lo, clip_hi)
 
     if cfg.log_target:
         y_train_raw = np.expm1(y_train)
         y_val_raw = np.expm1(y_val)
-        yhat_val_raw = np.expm1(yhat_val_target_scale)
-        yhat_val_raw_preclip = np.expm1(yhat_val_target_scale_preclip)
-        yhat_base_val = np.expm1(base_val_target_scale)
+        yhat_train_raw = np.expm1(yhat_train_model)
+        yhat_val_raw = np.expm1(yhat_val_model)
+        yhat_val_raw_preclip = np.expm1(yhat_val_model_preclip)
     else:
         y_train_raw = y_train
         y_val_raw = y_val
-        yhat_val_raw = yhat_val_target_scale
-        yhat_val_raw_preclip = yhat_val_target_scale_preclip
-        yhat_base_val = base_val_target_scale
+        yhat_train_raw = yhat_train_model
+        yhat_val_raw = yhat_val_model
+        yhat_val_raw_preclip = yhat_val_model_preclip
+
+    y_mean_model = float(np.mean(y_train))
+    yhat_base_val_model = np.full_like(y_val, y_mean_model)
+    yhat_base_val_raw = np.expm1(yhat_base_val_model) if cfg.log_target else yhat_base_val_model
 
     preds = val_df.loc[:, _meta_cols(val_df)].copy().reset_index(drop=True)
     preds["y_true_log"] = y_val.reshape(-1)
-    preds["y_pred_log_preclip"] = yhat_val_target_scale_preclip.reshape(-1)
-    preds["y_pred_log"] = yhat_val_target_scale.reshape(-1)
+    preds["y_pred_log_preclip"] = yhat_val_model_preclip.reshape(-1)
+    preds["y_pred_log"] = yhat_val_model.reshape(-1)
     preds["y_true"] = y_val_raw.reshape(-1)
     preds["y_pred"] = yhat_val_raw.reshape(-1)
     preds["y_pred_preclip"] = yhat_val_raw_preclip.reshape(-1)
-    preds["y_pred_baseline"] = yhat_base_val.reshape(-1)
+    preds["y_pred_baseline"] = yhat_base_val_raw.reshape(-1)
     preds["abs_error_log"] = np.abs(preds["y_pred_log"] - preds["y_true_log"])
     preds["abs_error_raw"] = np.abs(preds["y_pred"] - preds["y_true"])
     preds["rel_error_raw"] = preds["abs_error_raw"] / np.maximum(preds["y_true"], 1e-8)
     preds["clip_applied"] = np.abs(preds["y_pred_log"] - preds["y_pred_log_preclip"]) > 1e-9
 
-    preds["y_true_residual"] = y_val_residual.reshape(-1)
-    preds["y_pred_residual_preclip"] = yhat_val_residual.reshape(-1)
-    preds["y_pred_residual"] = yhat_val_residual.reshape(-1)
-    preds["y_pred_baseline_log"] = base_val_target_scale.reshape(-1)
-
     processed_train_df = pd.DataFrame(X_train, columns=feature_names)
     processed_val_df = pd.DataFrame(X_val, columns=feature_names)
 
-    def predict_residual_fn(processed_features: np.ndarray) -> np.ndarray:
+    def predict_model_fn(processed_features: np.ndarray) -> np.ndarray:
         arr = np.asarray(processed_features, dtype=np.float32)
         if arr.ndim == 1:
             arr = arr.reshape(1, -1)
-
         feature_block_s = _transform_standard_scaler(arr, x_scaler)
-        if pca_model is not None:
-            feature_block_model = transform_pca(feature_block_s, pca_model)
-        else:
-            feature_block_model = feature_block_s
         model.eval()
-        residual_s = model.forward(feature_block_model, training=False)
-        residual = residual_s * y_res_scaler["sigma"] + y_res_scaler["mu"]
-        return residual.reshape(-1)
+        yhat_s = model.forward(feature_block_s, training=False)
+        yhat_model = yhat_s * y_scaler["sigma"] + y_scaler["mu"]
+        return yhat_model.reshape(-1)
 
     return {
-        "predict_residual_fn": predict_residual_fn,
+        "predict_model_fn": predict_model_fn,
         "train_feature_df": processed_train_df,
         "val_feature_df": processed_val_df,
         "feature_names": list(feature_names),
         "predictions": preds,
         "metrics": {
-            "baseline_rmse_log": float(_rmse(y_val, base_val_target_scale)),
-            "baseline_rmse_raw": float(_rmse(y_val_raw, yhat_base_val)),
-            "baseline_mape_raw": float(_mape(y_val_raw, yhat_base_val)),
-            "train_rmse_log": float(_rmse(y_train, yhat_train_target_scale)),
-            "val_rmse_log": float(_rmse(y_val, yhat_val_target_scale)),
-            "train_r2_log": float(_r2(y_train, yhat_train_target_scale)),
-            "val_r2_log": float(_r2(y_val, yhat_val_target_scale)),
+            "baseline_rmse_log": float(_rmse(y_val, yhat_base_val_model)),
+            "baseline_rmse_raw": float(_rmse(y_val_raw, yhat_base_val_raw)),
+            "baseline_mape_raw": float(_mape(y_val_raw, yhat_base_val_raw)),
+            "train_rmse_log": float(_rmse(y_train, yhat_train_model)),
+            "val_rmse_log": float(_rmse(y_val, yhat_val_model)),
+            "train_r2_log": float(_r2(y_train, yhat_train_model)),
+            "val_r2_log": float(_r2(y_val, yhat_val_model)),
             "val_rmse_raw": float(_rmse(y_val_raw, yhat_val_raw)),
             "val_r2_raw": float(_r2(y_val_raw, yhat_val_raw)),
             "val_mape_raw": float(_mape(y_val_raw, yhat_val_raw)),
@@ -824,80 +749,64 @@ def _train_residual_mlp_baseline(
                 "clip_hi": float(clip_hi),
                 "clip_margin": float(cfg.clip_margin),
             },
-            "feature_selection": feature_selection_stats,
             "log1p_feature_names": list(log1p_feature_names),
-            "pca": pca_stats,
             "training": {
                 "best_epoch": _to_jsonable(history.get("best_epoch")),
                 "best_val_loss": _to_jsonable(history.get("best_val_loss")),
                 "stopped_early": _to_jsonable(history.get("stopped_early")),
                 "final_lr": float(history.get("lr", [float(cfg.lr)])[-1]) if history.get("lr") else float(cfg.lr),
                 "lr_reductions": int(history.get("lr_reductions", 0)),
+                "lr_increases": int(history.get("lr_increases", 0)),
+                "lr_scheduler_switches": int(history.get("lr_scheduler_switches", 0)),
+                "lr_scheduler_mode_last": history.get("lr_scheduler_mode", [None])[-1]
+                if history.get("lr_scheduler_mode")
+                else None,
             },
             "config": {k: _jsonable(v) for k, v in asdict(cfg).items()},
         },
         "feature_representation": {
-            "kind": "processed_selected_features_residual_only_shap",
-            "notes": (
-                "Selected features follow residual_mlp preprocessing, including log1p transforms. "
-                "Residual SHAP explains the learned correction only; the direct additive identity baseline term "
-                "is excluded from the SHAP feature set."
-            ),
+            "kind": "processed_selected_features_direct_mlp_shap",
+            "notes": "Selected features follow src.models.valuation.valuation2 preprocessing, including log1p transforms.",
         },
     }
 
 
-def _explain_residual_mlp_model(
+def _explain_valuation2_model(
     run_cfg: ValuationSHAPConfig,
 ) -> Dict[str, Any]:
-    cfg = ResidualMLPValuationConfig()
+    cfg = Valuation2Config()
     cfg.data_path = run_cfg.data_path
     cfg.random_seed = run_cfg.random_seed
-    cfg.out_dir = run_cfg.out_dir / "residual_mlp"
+    cfg.out_dir = run_cfg.out_dir / "valuation2"
     cfg.print_every = 10
 
-    model_info = _train_residual_mlp_baseline(cfg)
+    model_info = _train_valuation2_mlp(cfg)
     all_predictions: pd.DataFrame = model_info["predictions"].reset_index(drop=True)
     val_feature_df: pd.DataFrame = model_info["val_feature_df"].reset_index(drop=True)
     train_feature_df: pd.DataFrame = model_info["train_feature_df"].reset_index(drop=True)
 
     explain_idx = _sample_indices(
         n_rows=len(val_feature_df),
-        max_rows=run_cfg.residual_explain_rows,
+        max_rows=run_cfg.mlp_explain_rows,
         seed=run_cfg.random_seed,
     )
     background_idx = _sample_indices(
         n_rows=len(train_feature_df),
-        max_rows=run_cfg.residual_background_size,
+        max_rows=run_cfg.mlp_background_size,
         seed=run_cfg.random_seed + 1,
     )
 
     explained_predictions = all_predictions.iloc[explain_idx].reset_index(drop=True).copy()
-    explained_predictions["y_true_log"] = explained_predictions["y_true_residual"]
-    explained_predictions["y_pred_log_preclip"] = explained_predictions["y_pred_residual_preclip"]
-    explained_predictions["y_pred_log"] = explained_predictions["y_pred_residual"]
-    explained_predictions["y_true"] = explained_predictions["y_true_residual"]
-    explained_predictions["y_pred"] = explained_predictions["y_pred_residual"]
-    explained_predictions["y_pred_baseline"] = explained_predictions["y_pred_baseline_log"]
-    explained_predictions["abs_error_log"] = np.abs(
-        explained_predictions["y_pred_residual"] - explained_predictions["y_true_residual"]
-    )
-    explained_predictions["abs_error_raw"] = explained_predictions["abs_error_log"]
-    explained_predictions["rel_error_raw"] = explained_predictions["abs_error_log"] / np.maximum(
-        np.abs(explained_predictions["y_true_residual"]),
-        1e-8,
-    )
-    explained_predictions["clip_applied"] = False
     explained_feature_df = val_feature_df.iloc[explain_idx].reset_index(drop=True)
     background = train_feature_df.iloc[background_idx].to_numpy(dtype=np.float32, copy=False)
 
     shap_values = None
     base_values = None
     if shap is not None:
-        explainer = shap.KernelExplainer(model_info["predict_residual_fn"], background)
+        explainer = shap.KernelExplainer(model_info["predict_model_fn"], background)
         raw_shap = explainer.shap_values(
             explained_feature_df.to_numpy(dtype=np.float32, copy=False),
-            nsamples=int(run_cfg.residual_kernel_nsamples),
+            nsamples=int(run_cfg.mlp_kernel_nsamples),
         )
         if isinstance(raw_shap, list):
             raw_shap = raw_shap[0]
@@ -909,8 +818,8 @@ def _explain_residual_mlp_model(
         base_values = np.full(len(explained_feature_df), expected_scalar, dtype=np.float32)
 
     return _save_model_artifacts(
-        model_name="residual_mlp",
-        model_dir=run_cfg.out_dir / "residual_mlp",
+        model_name="valuation2",
+        model_dir=run_cfg.out_dir / "valuation2",
         all_predictions=all_predictions,
         explained_predictions=explained_predictions,
         explained_feature_df=explained_feature_df,
@@ -918,9 +827,9 @@ def _explain_residual_mlp_model(
         shap_values=shap_values,
         base_values=base_values,
         model_summary=model_info,
-        attribution_scale=RESIDUAL_ONLY_ATTRIBUTION_SCALE,
-        shap_method="shap_kernel_explainer_residual_only",
-        explanation_view="residual_only",
+        attribution_scale=DIRECT_MLP_ATTRIBUTION_SCALE,
+        shap_method="shap_kernel_explainer_full_prediction",
+        explanation_view="full_prediction",
         run_cfg=run_cfg,
     )
 
@@ -946,10 +855,29 @@ def main() -> None:
     ap.add_argument("--top-error-rows", type=int, default=50)
     ap.add_argument("--top-k-local-features", type=int, default=5)
     ap.add_argument("--skip-plots", action="store_true")
-    ap.add_argument("--residual-background-size", type=int, default=64)
-    ap.add_argument("--residual-explain-rows", type=int, default=128)
-    ap.add_argument("--residual-kernel-nsamples", type=int, default=128)
+    ap.add_argument("--mlp-background-size", type=int, default=64)
+    ap.add_argument("--mlp-explain-rows", type=int, default=128)
+    ap.add_argument("--mlp-kernel-nsamples", type=int, default=128)
+    ap.add_argument("--residual-background-size", type=int, default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--residual-explain-rows", type=int, default=None, help=argparse.SUPPRESS)
+    ap.add_argument("--residual-kernel-nsamples", type=int, default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
+
+    mlp_background_size = (
+        int(args.residual_background_size)
+        if args.residual_background_size is not None
+        else int(args.mlp_background_size)
+    )
+    mlp_explain_rows = (
+        int(args.residual_explain_rows)
+        if args.residual_explain_rows is not None
+        else int(args.mlp_explain_rows)
+    )
+    mlp_kernel_nsamples = (
+        int(args.residual_kernel_nsamples)
+        if args.residual_kernel_nsamples is not None
+        else int(args.mlp_kernel_nsamples)
+    )
 
     run_cfg = ValuationSHAPConfig(
         data_path=Path(args.main),
@@ -960,9 +888,9 @@ def main() -> None:
         top_error_rows=int(args.top_error_rows),
         top_k_local_features=int(args.top_k_local_features),
         save_plots=not bool(args.skip_plots),
-        residual_background_size=int(args.residual_background_size),
-        residual_explain_rows=int(args.residual_explain_rows),
-        residual_kernel_nsamples=int(args.residual_kernel_nsamples),
+        mlp_background_size=mlp_background_size,
+        mlp_explain_rows=mlp_explain_rows,
+        mlp_kernel_nsamples=mlp_kernel_nsamples,
     )
 
     _ensure_dir(run_cfg.out_dir)
@@ -971,15 +899,15 @@ def main() -> None:
     for model_name in run_cfg.models:
         if model_name == "xgb":
             model_summaries["xgb"] = _explain_xgb_model(run_cfg)
-        elif model_name == "residual_mlp":
-            model_summaries["residual_mlp"] = _explain_residual_mlp_model(run_cfg)
+        elif model_name == "valuation2":
+            model_summaries["valuation2"] = _explain_valuation2_model(run_cfg)
 
     summary = {
         "config": asdict(run_cfg),
         "inputs": {
             "main_dataset": str(run_cfg.data_path),
         },
-        "primary_model": "residual_mlp",
+        "primary_model": "valuation2",
         "comparison_model": "xgb" if "xgb" in model_summaries else None,
         "library_versions": {
             "xgboost": getattr(xgb, "__version__", None),

@@ -1,0 +1,213 @@
+{
+  "target_col": "total_assets",
+  "log_target": true,
+  "train_rows": 20263,
+  "val_rows": 1730,
+  "years": [
+    2010,
+    2011,
+    2012,
+    2013,
+    2014,
+    2015,
+    2016,
+    2017,
+    2018,
+    2019,
+    2020,
+    2021,
+    2022,
+    2023,
+    2024,
+    2025,
+    2026
+  ],
+  "identity_baseline": {
+    "formula": "total_liabilities + total_equity",
+    "base_feature_col": "identity_base_assets",
+    "val_rmse_log": 0.462801069021225,
+    "val_factor": 1.5885173056799538,
+    "val_rmse_raw": 202252288.0,
+    "val_mape_raw": 0.008460046723484993,
+    "val_r2_raw": 0.999998022829526,
+    "val_r2_log": 0.9702567025614502
+  },
+  "feature_engineering": {
+    "selection": {
+      "selection_applied": true,
+      "raw_feature_count": 98,
+      "selected_feature_count": 73,
+      "min_abs_target_corr": 0.01,
+      "max_features": 200,
+      "max_inter_feature_corr": 0.98,
+      "min_features_floor": 20,
+      "mean_abs_target_corr_selected": 0.1750158817601618,
+      "top_abs_target_corr_features": [
+        {
+          "feature": "dividends_paid",
+          "abs_corr": 0.40079030263888443
+        },
+        {
+          "feature": "gross_profit_raw",
+          "abs_corr": 0.3981883441956036
+        },
+        {
+          "feature": "total_equity",
+          "abs_corr": 0.39561914814070703
+        },
+        {
+          "feature": "total_debt",
+          "abs_corr": 0.3888493171574957
+        },
+        {
+          "feature": "additional_paid_in_capital",
+          "abs_corr": 0.38495358168790555
+        },
+        {
+          "feature": "goodwill",
+          "abs_corr": 0.38222767062855656
+        },
+        {
+          "feature": "debt_long_term_component",
+          "abs_corr": 0.3816161814995114
+        },
+        {
+          "feature": "has_goodwill",
+          "abs_corr": 0.3801911000997028
+        },
+        {
+          "feature": "revenue",
+          "abs_corr": 0.3734518772163506
+        },
+        {
+          "feature": "has_research_and_development",
+          "abs_corr": 0.36882271511628795
+        },
+        {
+          "feature": "ebitda",
+          "abs_corr": 0.36343084098175593
+        },
+        {
+          "feature": "identity_base_assets",
+          "abs_corr": 0.3625217228131678
+        },
+        {
+          "feature": "selling_general_administrative",
+          "abs_corr": 0.3610897046182283
+        },
+        {
+          "feature": "depreciation_and_amortization",
+          "abs_corr": 0.3514118004157735
+        },
+        {
+          "feature": "cfo",
+          "abs_corr": 0.3366309005331668
+        },
+        {
+          "feature": "total_liabilities",
+          "abs_corr": 0.33555679896498747
+        },
+        {
+          "feature": "ppe_net",
+          "abs_corr": 0.32888738699608294
+        },
+        {
+          "feature": "operating_income",
+          "abs_corr": 0.32795675250001133
+        },
+        {
+          "feature": "net_debt",
+          "abs_corr": 0.32292190486837724
+        },
+        {
+          "feature": "intangible_assets",
+          "abs_corr": 0.3156199611725601
+        }
+      ],
+      "dropped_feature_count": 25
+    },
+    "pca": {
+      "enabled": false,
+      "n_features_in": 73,
+      "n_components": 73,
+      "explained_variance_ratio_cum": 1.0
+    }
+  },
+  "clip": {
+    "use_quantile_clip": true,
+    "q_lo": 0.005,
+    "q_hi": 0.995,
+    "lo": 15.059917449951172,
+    "hi": 27.575571060180664,
+    "margin": 0.2
+  },
+  "config": {
+    "hidden_dims": [
+      128,
+      64
+    ],
+    "dropout": 0.2,
+    "lr": 0.0005,
+    "weight_decay": 1e-05,
+    "loss_fn": "HuberLoss",
+    "huber_delta": 0.1,
+    "l1_in_layers": 1e-07,
+    "l2_in_layers": 5e-06,
+    "lr_scheduler": "reduce_on_plateau",
+    "lr_factor": 0.5,
+    "lr_patience": 20,
+    "lr_min": 1e-06,
+    "lr_threshold": 5e-05,
+    "lr_cooldown": 5,
+    "batch_size": 128,
+    "epochs_max": 500,
+    "early_stopping": true,
+    "patience": 40,
+    "min_delta": 0.0001,
+    "restore_best": true,
+    "log1p_feature_transform": true,
+    "log1p_feature_count": 9,
+    "log1p_features": [
+      "total_debt",
+      "identity_base_assets",
+      "intangible_assets",
+      "cash_and_equivalents",
+      "capex",
+      "accrued_current_liabilities",
+      "has_intangible_assets",
+      "deferred_revenue_current",
+      "has_deferred_revenue_current"
+    ],
+    "raw_feature_count": 98,
+    "feature_count": 73,
+    "model_input_dim": 73,
+    "enable_feature_selection": true,
+    "min_abs_target_corr": 0.01,
+    "max_features_by_target_corr": 200,
+    "max_inter_feature_corr": 0.98,
+    "min_features_after_selection": 20,
+    "enable_pca": false,
+    "pca_explained_variance": 0.95,
+    "pca_max_components": 64
+  },
+  "training": {
+    "best_epoch": 24,
+    "best_val_loss": 0.0009438394657035245,
+    "stopped_early": true,
+    "final_lr": 0.00025,
+    "lr_reductions": 1
+  },
+  "metrics": {
+    "train_rmse_log": 0.2973631723665419,
+    "train_factor": 1.3463041511386662,
+    "val_rmse_log": 0.100439277885509,
+    "val_factor": 1.1056565018649676,
+    "train_r2_log": 0.9863467893278184,
+    "val_r2_log": 0.9985990985160351,
+    "train_r2_raw": 0.7401747829713188,
+    "val_r2_raw": 0.9780510178127861,
+    "val_mape_raw": 0.02633672419353109,
+    "train_rmse_raw": 66842358470.16263,
+    "val_rmse_raw": 21309760585.180218
+  }
+}
